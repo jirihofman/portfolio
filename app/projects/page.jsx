@@ -13,6 +13,9 @@ export default async function ProjectsPage() {
 		headers: {
 			Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
 		},
+		next: {
+			revalidate: 60
+		}
 	});
 	const repositories = await response.json();
 	const blackList = ['lerna-poc', 'rmc2jhf', 'jirihofman'];
