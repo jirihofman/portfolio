@@ -16,7 +16,7 @@ cd portfolio
 
 Create a `.env` file similar to [`.env.example`](https://github.com/jirihofman/profile/blob/main/.env.example).
 ```sh
-mv .env.example .env
+mv .env.example .env.local
 # add GITHUB_TOKEN
 GITHUB_TOKEN=YOUR_GH_TOKEN
 ```
