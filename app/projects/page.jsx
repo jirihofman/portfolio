@@ -3,6 +3,7 @@ import { Navigation } from "../components/nav";
 import { Card } from "../components/card";
 import { Article } from "./article";
 import chunk from 'lodash/chunk';
+import data from "../../data.json";
 // import { Redis } from "@upstash/redis";
 
 // const redis = Redis.fromEnv();
@@ -10,7 +11,7 @@ import chunk from 'lodash/chunk';
 export const revalidate = 60;
 export default async function ProjectsPage() {
 
-	const response = await fetch('https://api.github.com/users/jirihofman/repos', {
+	const response = await fetch('https://api.github.com/users/' + data.githubUsername + '/repos', {
 		headers: {
 			Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
 		},
@@ -19,14 +20,12 @@ export default async function ProjectsPage() {
 		}
 	});
 	const repositories = await response.json();
-	const blackList = ['lerna-poc', 'rmc2jhf', 'jirihofman'];
-	const big4names = ["nextjs-fullstack-app-template", "strawberry-scim", "random8", "dali-jsme-jidlo"];
-	const big4 = repositories.filter((project) => big4names.includes(project.name));
+	const big4 = repositories.filter((project) => data.projects.big4names.includes(project.name));
 	const sorted = repositories
 		.filter((p) => !p.private)
 		.filter((p) => !p.fork)
-		.filter((p) => !big4names.includes(p.name))
-		.filter((p) => !blackList.includes(p.name))
+		.filter((p) => !data.projects.big4names.includes(p.name))
+		.filter((p) => !data.projects.blacklist.includes(p.name))
 		.sort(
 			(a, b) =>
 				new Date(b.updated_at ?? Number.POSITIVE_INFINITY).getTime() -
@@ -43,7 +42,7 @@ export default async function ProjectsPage() {
 						Projects
 					</h2>
 					<p className="mt-4 text-zinc-400">
-					 My hobby projects, most of them are Nextjs apps deployed to Vercel.
+						{data.description}
 					</p>
 				</div>
 				<div className="w-full h-px bg-zinc-800" />

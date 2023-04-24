@@ -3,25 +3,26 @@ import { Github, Linkedin, Mail } from "lucide-react";
 import Link from "next/link";
 import { Navigation } from "../components/nav";
 import { Card } from "../components/card";
+import data from "../../data.json";
 
 const socials = [
 	{
 		icon: <Mail size={20} />,
-		href: "mailto:jiri.hofman@gmail.com",
+		href: "mailto:" + data.email,
 		label: "Email",
-		handle: "jiri.hofman@gmail.com",
+		handle: data.email,
 	},
 	{
 		icon: <Github size={20} />,
-		href: "https://github.com/jirihofman",
+		href: "https://github.com/" + data.githubUsername,
 		label: "Github",
-		handle: "jirihofman",
+		handle: data.githubUsername,
 	},
 	{
 		icon: <Linkedin size={20} />,
-		href: "https://www.linkedin.com/in/ji%C5%99%C3%AD-hofman/",
+		href: "https://www.linkedin.com/in/" + encodeURIComponent(data.socials.linkedin.handle) + "/",
 		label: "LinkedIn",
-		handle: "jiří-hofman",
+		handle: data.socials.linkedin.handle,
 	},
 ];
 
