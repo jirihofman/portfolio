@@ -2,6 +2,7 @@ import React from "react";
 import { Navigation } from "../components/nav";
 import { Card } from "../components/card";
 import { Article } from "./article";
+import chunk from 'lodash/chunk';
 // import { Redis } from "@upstash/redis";
 
 // const redis = Redis.fromEnv();
@@ -28,15 +29,11 @@ export default async function ProjectsPage() {
 		.filter((p) => !blackList.includes(p.name))
 		.sort(
 			(a, b) =>
-				new Date(b.stargazers_count ?? Number.POSITIVE_INFINITY).getTime() -
-				new Date(a.stargazers_count ?? Number.POSITIVE_INFINITY).getTime(),
-		)
-		.sort(
-			(a, b) =>
-				new Date(b.date ?? Number.POSITIVE_INFINITY).getTime() -
-				new Date(a.date ?? Number.POSITIVE_INFINITY).getTime(),
+				new Date(b.updated_at ?? Number.POSITIVE_INFINITY).getTime() -
+				new Date(a.updated_at ?? Number.POSITIVE_INFINITY).getTime(),
 		);
 
+		const chunkSize = Math.ceil(sorted.length / 3);
 	return (
 		<div className="relative pb-16">
 			<Navigation />
@@ -54,7 +51,7 @@ export default async function ProjectsPage() {
 				<div className="grid grid-cols-1 gap-8 mx-auto lg:grid-cols-2 ">
 
 					<div className="grid grid-cols-1 gap-4">
-						{[big4[2], big4[0	]].map((project) => (
+						{[big4[2], big4[0]].map((project) => (
 							<Card key={project.name}>
 								<Article project={project} />
 							</Card>
@@ -72,8 +69,7 @@ export default async function ProjectsPage() {
 
 				<div className="grid grid-cols-1 gap-4 mx-auto lg:mx-0 md:grid-cols-3">
 					<div className="grid grid-cols-1 gap-4">
-						{sorted
-							.filter((_, i) => i % 3 === 0)
+						{chunk(sorted, chunkSize)[0]
 							.map((project) => (
 								<Card key={project.name}>
 									<Article project={project} />
@@ -81,8 +77,7 @@ export default async function ProjectsPage() {
 							))}
 					</div>
 					<div className="grid grid-cols-1 gap-4">
-						{sorted
-							.filter((_, i) => i % 3 === 1)
+						{chunk(sorted, chunkSize)[1]
 							.map((project) => (
 								<Card key={project.name}>
 									<Article project={project} />
@@ -90,8 +85,7 @@ export default async function ProjectsPage() {
 							))}
 					</div>
 					<div className="grid grid-cols-1 gap-4">
-						{sorted
-							.filter((_, i) => i % 3 === 2)
+						{chunk(sorted, chunkSize)[2]
 							.map((project) => (
 								<Card key={project.name}>
 									<Article project={project} />
