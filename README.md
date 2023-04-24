@@ -1,9 +1,7 @@
-<div align="center">
-    <a href="https://portfolio-jirihofman.vercel.app"><h1 align="center">portfolio-jirihofman.vercel.app</h1></a>
+# 🔗 [portfolio-jirihofman.vercel.app](https://portfolio-jirihofman.vercel.app)
 
-My personal website, built with [Next.js](https://nextjs.org/), [Tailwind CSS](https://tailwindcss.com/), ~~[Upstash](https://upstash.com)~~ and deployed to preview(https://vercel.com/).
+My personal website, built with [Next.js](https://nextjs.org/), [Tailwind CSS](https://tailwindcss.com/), ~~[Upstash](https://upstash.com)~~ and deployed to preview(https://vercel.com/). Based on [chronark's site](https://chronark.com/).
 
-</div>
 
 ## Running Locally
 
@@ -17,7 +15,9 @@ cd portfolio
 Create a `.env` file similar to [`.env.example`](https://github.com/jirihofman/profile/blob/main/.env.example).
 ```sh
 mv .env.example .env.local
-# add GITHUB_TOKEN
+```
+Add GITHUB_TOKEN into the new file.
+```sh
 GITHUB_TOKEN=YOUR_GH_TOKEN
 ```
 

@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import LocalFont from "next/font/local";
 import React from "react";
 
+/** @type {import('next').Metadata} */
 export const metadata = {
 	title: {
 		default: "Jiří Hofman's portfolio",
