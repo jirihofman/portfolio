@@ -6,6 +6,7 @@ export const config = {
 	runtime: "edge",
 };
 
+// TODO: Revisit when portfolio slugs are added.
 export default async function incr(req) {
 	if (req.method !== "POST") {
 		return new NextResponse("use POST", { status: 405 });
@@ -43,5 +44,6 @@ export default async function incr(req) {
 		}
 	}
 	await redis.incr(["pageviews", "projects", slug].join(":"));
+
 	return new NextResponse(null, { status: 202 });
 }

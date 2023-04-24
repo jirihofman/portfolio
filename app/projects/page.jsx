@@ -14,7 +14,7 @@ export default async function ProjectsPage() {
 			Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
 		},
 		next: {
-			revalidate: 60
+			revalidate
 		}
 	});
 	const repositories = await response.json();

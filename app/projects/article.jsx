@@ -1,6 +1,6 @@
 import Link from "next/link";
 // import Image from "next/image";
-import { Eye, Github, Star } from "lucide-react";
+import { Github, Star } from "lucide-react";
 
 export const Article = ({ project }) => {
 
@@ -17,8 +17,8 @@ export const Article = ({ project }) => {
 						</time>
 					</span>
 					<span className="text-zinc-500 text-xs flex items-center gap-1 ">
-						<Eye className="w-4 h-4" />{" "}
-						{Intl.NumberFormat("en-US", { notation: "compact" }).format(project.watchers_count)}
+						{/* <Eye className="w-4 h-4" />{" "}
+						{Intl.NumberFormat("en-US", { notation: "compact" }).format(project.watchers_count)} */}
 						<Star className="w-4 h-4" />{" "}
 						{Intl.NumberFormat("en-US", { notation: "compact" }).format(project.stargazers_count)}
 					</span>
