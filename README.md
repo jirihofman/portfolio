@@ -27,6 +27,8 @@ npm install
 npm dev
 ```
 
+Edit `data.json` to put your personal information there.
+
 
 ## Cloning / Forking
 
