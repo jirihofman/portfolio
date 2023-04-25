@@ -1,4 +1,3 @@
-"use client";
 import { Github, Linkedin, Mail } from "lucide-react";
 import Link from "next/link";
 import { Navigation } from "../components/nav";
@@ -6,7 +5,7 @@ import { Card } from "../components/card";
 import data from "../../data.json";
 import { getUser } from "../data";
 
-export default async function Example() {
+export default async function Contacts() {
 
 	const user = await getUser(data.githubUsername);
 	const email = user.email || data.email;
@@ -44,7 +43,7 @@ export default async function Example() {
 						const emailTransform = s.label === 'Email' ? 'sm:rotate-45 md:rotate-0 lg:rotate-45 xl:rotate-0' : '';
 
 						return (
-							<Card>
+							<Card key={s.label}>
 								<Link
 									href={s.href}
 									target="_blank"
