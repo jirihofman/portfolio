@@ -4,22 +4,20 @@ import { Card } from "../components/card";
 import { Article } from "./article";
 import chunk from 'lodash/chunk';
 import data from "../../data.json";
+import { getRepos, getUser } from "../data";
 // import { Redis } from "@upstash/redis";
 
 // const redis = Redis.fromEnv();
 
-export const revalidate = 60;
 export default async function ProjectsPage() {
+	
+	// Initiate both requests in parallel
+	const userData = getUser(data.githubUsername);
+	const reposData = getRepos(data.githubUsername);
 
-	const response = await fetch('https://api.github.com/users/' + data.githubUsername + '/repos', {
-		headers: {
-			Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
-		},
-		next: {
-			revalidate
-		}
-	});
-	const repositories = await response.json();
+	// Wait for the promises to resolve
+	const [user, repositories] = await Promise.all([userData, reposData]);
+
 	const big4 = repositories.filter((project) => data.projects.big4names.includes(project.name));
 	const sorted = repositories
 		.filter((p) => !p.private)
@@ -32,7 +30,7 @@ export default async function ProjectsPage() {
 				new Date(a.updated_at ?? Number.POSITIVE_INFINITY).getTime(),
 		);
 
-		const chunkSize = Math.ceil(sorted.length / 3);
+	const chunkSize = Math.ceil(sorted.length / 3);
 	return (
 		<div className="relative pb-16">
 			<Navigation />
@@ -45,26 +43,32 @@ export default async function ProjectsPage() {
 						{data.description}
 					</p>
 				</div>
-				<div className="w-full h-px bg-zinc-800" />
 
-				<div className="grid grid-cols-1 gap-8 mx-auto lg:grid-cols-2 ">
+				{
+					big4.length ? <>
+						<div className="w-full h-px bg-zinc-800" />
+						<div className="grid grid-cols-1 gap-8 mx-auto lg:grid-cols-2 ">
 
-					<div className="grid grid-cols-1 gap-4">
-						{[big4[2], big4[0]].map((project) => (
-							<Card key={project.name}>
-								<Article project={project} />
-							</Card>
-						))}
-					</div>
-					<div className="grid grid-cols-1 gap-4">
-						{[big4[1], big4[3]].map((project) => (
-							<Card key={project.name}>
-								<Article project={project} />
-							</Card>
-						))}
-					</div>
-				</div>
-				<div className="hidden w-full h-px md:block bg-zinc-800" />
+							<div className="grid grid-cols-1 gap-4">
+								{[big4[2], big4[0]].map((project) => (
+									!project ? null :
+										<Card key={project.name}>
+											<Article project={project} />
+										</Card>
+								))}
+							</div>
+							<div className="grid grid-cols-1 gap-4">
+								{[big4[1], big4[3]].map((project) => (
+									!project ? null :
+										<Card key={project.name}>
+											<Article project={project} />
+										</Card>
+								))}
+							</div>
+						</div>
+						<div className="hidden w-full h-px md:block bg-zinc-800" />
+					</> : null
+				}
 
 				<div className="grid grid-cols-1 gap-4 mx-auto lg:mx-0 md:grid-cols-3">
 					<div className="grid grid-cols-1 gap-4">
