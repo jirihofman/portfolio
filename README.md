@@ -22,9 +22,9 @@ Create a `.env` file similar to [`.env.example`](https://github.com/jirihofman/p
 ```sh
 mv .env.example .env.local
 ```
-Add GITHUB_TOKEN into the new file.
+Add GitHub token into the new file.
 ```sh
-GITHUB_TOKEN=YOUR_GH_TOKEN
+GH_TOKEN=YOUR_GH_TOKEN
 ```
 
 Then install dependencies and run the development server:
