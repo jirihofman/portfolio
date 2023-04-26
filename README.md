@@ -22,8 +22,12 @@ GITHUB_TOKEN=YOUR_GH_TOKEN
 ```
 
 Then install dependencies and run the development server:
-```sh-session
+```sh
+# Install dependencies.
 npm install
+# Replace jirihofman's personal info with octocat's.
+npm run setup
+# Start hacking.
 npm dev
 ```
 
@@ -32,4 +36,13 @@ Edit `data.json` to put your personal information there.
 
 ## Cloning / Forking
 
-Please remove all of my personal information (projects, images, etc.) before deploying your own version of this site.
+Please remove all of my personal information in `data.json` before deploying your own version of this site. This is done when you run `npm run setup`. Once you are happy with your `data.json`, set
+```sh
+# .env or .env.local
+IS_TEMPLATE=false
+```
+in your ENVs to prevent `npm build` from reverting `data.json` back to Octocat's data.
+
+### To check before deploying
+- [ ] `data.json`: githubUsername, description, big4names
+- [ ] `README.md`: link at the top

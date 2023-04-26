@@ -10,7 +10,7 @@ import { getRepos, getUser } from "../data";
 // const redis = Redis.fromEnv();
 
 export default async function ProjectsPage() {
-	
+
 	// Initiate both requests in parallel
 	const userData = getUser(data.githubUsername);
 	const reposData = getRepos(data.githubUsername);
@@ -49,22 +49,28 @@ export default async function ProjectsPage() {
 						<div className="w-full h-px bg-zinc-800" />
 						<div className="grid grid-cols-1 gap-8 mx-auto lg:grid-cols-2 ">
 
-							<div className="grid grid-cols-1 gap-4">
-								{[big4[2], big4[0]].map((project) => (
-									!project ? null :
-										<Card key={project.name}>
-											<Article project={project} />
-										</Card>
-								))}
-							</div>
-							<div className="grid grid-cols-1 gap-4">
-								{[big4[1], big4[3]].map((project) => (
-									!project ? null :
-										<Card key={project.name}>
-											<Article project={project} />
-										</Card>
-								))}
-							</div>
+							{
+								(big4[0] || big4[2]) ?
+									<div className="grid grid-cols-1 gap-4">
+										{[big4[0], big4[2]].map((project) => (
+											!project ? null :
+												<Card key={project.name}>
+													<Article project={project} />
+												</Card>
+										))}
+									</div> : null
+							}
+                            {
+                                (big4[1] || big4[3]) ?
+    							<div className="grid grid-cols-1 gap-4">
+    								{[big4[1], big4[3]].map((project) => (
+    									!project ? null :
+    										<Card key={project.name}>
+    											<Article project={project} />
+    										</Card>
+    								))}
+    							</div> : null
+                            }
 						</div>
 						<div className="hidden w-full h-px md:block bg-zinc-800" />
 					</> : null

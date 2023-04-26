@@ -4,12 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbo",
-    "build": "next build",
-    "start": "next start"
+    "build": "npm run setup && next build",
+    "build-only": "next build",
+    "start": "next start",
+    "setup": "node ./lib/setup.mjs"
   },
   "dependencies": {
     "@upstash/redis": "^1.20.1",
     "@vercel/analytics": "^0.1.11",
+    "dotenv": "^16.0.3",
     "framer-motion": "^10.9.1",
     "lodash": "^4.17.21",
     "lucide-react": "^0.127.0",
