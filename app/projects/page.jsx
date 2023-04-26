@@ -18,11 +18,11 @@ export default async function ProjectsPage() {
 	// Wait for the promises to resolve
 	const [user, repositories] = await Promise.all([userData, reposData]);
 
-	const big4 = repositories.filter((project) => data.projects.big4names.includes(project.name));
+	const heroes = repositories.filter((project) => data.projects.heroNames.includes(project.name)).sort((a, b) => b.stargazers_count - a.stargazers_count);
 	const sorted = repositories
 		.filter((p) => !p.private)
 		.filter((p) => !p.fork)
-		.filter((p) => !data.projects.big4names.includes(p.name))
+		.filter((p) => !data.projects.heroNames.includes(p.name))
 		.filter((p) => !data.projects.blacklist.includes(p.name))
 		.sort(
 			(a, b) =>
@@ -45,14 +45,14 @@ export default async function ProjectsPage() {
 				</div>
 
 				{
-					big4.length ? <>
+					heroes.length ? <>
 						<div className="w-full h-px bg-zinc-800" />
 						<div className="grid grid-cols-1 gap-8 mx-auto lg:grid-cols-2 ">
 
 							{
-								(big4[0] || big4[2]) ?
+								(heroes[0] || heroes[2]) ?
 									<div className="grid grid-cols-1 gap-4">
-										{[big4[0], big4[2]].map((project) => (
+										{[heroes[0], heroes[2]].map((project) => (
 											!project ? null :
 												<Card key={project.name}>
 													<Article project={project} />
@@ -61,9 +61,9 @@ export default async function ProjectsPage() {
 									</div> : null
 							}
                             {
-                                (big4[1] || big4[3]) ?
+                                (heroes[1] || heroes[3]) ?
     							<div className="grid grid-cols-1 gap-4">
-    								{[big4[1], big4[3]].map((project) => (
+    								{[heroes[1], heroes[3]].map((project) => (
     									!project ? null :
     										<Card key={project.name}>
     											<Article project={project} />
