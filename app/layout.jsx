@@ -6,7 +6,7 @@ import data from "../data.json";
 /** @type {import('next').Metadata} */
 export const metadata = {
 	title: {
-		default: [data.displayName, '\'s portfolio'].join(""),
+		default: [data.displayName || data.githubUsername, '\'s portfolio'].join(""),
 		template: "%s | " + data.displayName + "'s portfolio",
 	},
 	description: data.position,
@@ -47,7 +47,7 @@ export default function RootLayout({
 		<html lang="en" className={[inter.variable, calSans.variable].join(" ")}>
 			<body
 				className={`bg-black ${
-					process.env.NODE_ENV === "development" ? "debug-screens" : undefined
+					process.env.NODE_ENV === "development" ? "debug-screens" : ''
 				}`}
 			>
 				{/* <Analytics /> */}
