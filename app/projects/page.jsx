@@ -11,13 +11,7 @@ import { getRepos, getUser } from "../data";
 
 export default async function ProjectsPage() {
 
-	// Initiate both requests in parallel
-	const userData = getUser(data.githubUsername);
-	const reposData = getRepos(data.githubUsername);
-
-	// Wait for the promises to resolve
-	const [user, repositories] = await Promise.all([userData, reposData]);
-
+	const repositories = await getRepos(data.githubUsername);
 	const heroes = repositories.filter((project) => data.projects.heroNames.includes(project.name)).sort((a, b) => b.stargazers_count - a.stargazers_count);
 	const sorted = repositories
 		.filter((p) => !p.private)
