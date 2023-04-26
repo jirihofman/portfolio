@@ -44,5 +44,7 @@ IS_TEMPLATE=false
 in your ENVs to prevent `npm build` from reverting `data.json` back to Octocat's data.
 
 ### To check before deploying
-- [ ] `data.json`: githubUsername, description, big4names
+- [ ] `data.json`: githubUsername, description, big4names. Handled by `setup.mjs`.
 - [ ] `README.md`: link at the top
+- [ ] `app/layout.jsx`: metadata - title, description, favicon. Handled by `setup.mjs`.
+- [ ] `public/favicon.ico`. Handled by `setup.mjs`.

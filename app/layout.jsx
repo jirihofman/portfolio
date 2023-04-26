@@ -1,15 +1,15 @@
 import "../global.css";
 import { Inter } from "next/font/google";
 import LocalFont from "next/font/local";
-import React from "react";
+import data from "../data.json";
 
 /** @type {import('next').Metadata} */
 export const metadata = {
 	title: {
-		default: "Jiří Hofman's portfolio",
-		template: "%s | Jiří Hofman's portfolio",
+		default: [data.displayName, '\'s portfolio'].join(""),
+		template: "%s | " + data.displayName + "'s portfolio",
 	},
-	description: "Software engineer at client.io",
+	description: data.position,
 	robots: {
 		index: true,
 		follow: true,
