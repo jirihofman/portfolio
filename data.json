@@ -13,11 +13,7 @@
 		}
 	},
 	"projects": {
-		"blacklist": [
-			"lerna-poc",
-			"rmc2jhf",
-			"jirihofman"
-		],
+		"blacklist": [],
 		"heroNames": [
 			"random8",
 			"strawberry-scim",

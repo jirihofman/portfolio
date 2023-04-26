@@ -22,6 +22,8 @@ export default async function ProjectsPage() {
 	const sorted = repositories
 		.filter((p) => !p.private)
 		.filter((p) => !p.fork)
+		.filter((p) => !p.archived)
+		// .filter((p) => p.name !== data.githubUsername)
 		.filter((p) => !data.projects.heroNames.includes(p.name))
 		.filter((p) => !data.projects.blacklist.includes(p.name))
 		.sort(
