@@ -57,6 +57,6 @@ in your ENVs to prevent `npm build` from reverting `data.json` back to Octocat's
 - [ ] `public/favicon.ico`. Handled by `setup.mjs`.
 
 ## Vercel
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fjirihofman%2Fportfolio)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/import?repository-url=https%3A%2F%2Fgithub.com%2Fjirihofman%2Fportfolio)
 
 When deploying to Vercel, remeber to set `GH_TOKEN` ENV variable ASAP.
