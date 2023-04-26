@@ -1,5 +1,6 @@
 # 🔗 [portfolio-jirihofman.vercel.app](https://portfolio-jirihofman.vercel.app)
 
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/import?repository-url=https%3A%2F%2Fgithub.com%2Fjirihofman%2Fportfolio&env=GH_TOKEN)
 
 My personal portfolio website, built with [Next.js](https://nextjs.org/), [Tailwind CSS](https://tailwindcss.com/), ~~[Upstash](https://upstash.com)~~ and deployed to preview(https://vercel.com/). Based on [chronark's site](https://chronark.com/). Some ideas borrowed from [leerob/leerob.io](https://github.com/leerob/leerob.io).
 
@@ -55,8 +56,3 @@ in your ENVs to prevent `npm build` from reverting `data.json` back to Octocat's
 - [ ] `README.md`: link at the top
 - [ ] `app/layout.jsx`: metadata - title, description, favicon. Handled by `setup.mjs`.
 - [ ] `public/favicon.ico`. Handled by `setup.mjs`.
-
-## Vercel
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/import?repository-url=https%3A%2F%2Fgithub.com%2Fjirihofman%2Fportfolio)
-
-When deploying to Vercel, remeber to set `GH_TOKEN` ENV variable ASAP.
