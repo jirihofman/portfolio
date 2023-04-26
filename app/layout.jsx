@@ -1,6 +1,7 @@
 import "../global.css";
 import { Inter } from "next/font/google";
 import LocalFont from "next/font/local";
+import { Analytics } from '@vercel/analytics/react';
 import data from "../data.json";
 
 /** @type {import('next').Metadata} */
@@ -50,7 +51,7 @@ export default function RootLayout({
 					process.env.NODE_ENV === "development" ? "debug-screens" : ''
 				}`}
 			>
-				{/* <Analytics /> */}
+				<Analytics />
 				{children}
 			</body>
 		</html>
