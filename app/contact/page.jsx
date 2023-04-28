@@ -1,44 +1,63 @@
-import { Github, Linkedin, Mail } from "lucide-react";
+import { Github, Linkedin, Mail, User } from "lucide-react";
 import Link from "next/link";
 import { Navigation } from "../components/nav";
 import { Card } from "../components/card";
 import data from "../../data.json";
-import { getUser } from "../data";
+import { getUser, getSocialAccounts } from "../data";
 
 export default async function Contacts() {
 
-	const user = await getUser(data.githubUsername);
+	// Get both user and socials in parallel.
+	const userData = getUser(data.githubUsername);
+	const socialsData = getSocialAccounts(data.githubUsername);
+	const [user, githubSocials] = await Promise.all([userData, socialsData]);
 	const email = user.email || data.email;
-	const socials = [];
+	const contancts = [];
 	if (email) {
-		socials.push({
+		contancts.push({
 			icon: <Mail size={20} />,
 			href: "mailto:" + email,
 			label: "Email",
 			handle: email,
 		});
 	}
-	socials.push({
+	contancts.push({
 		icon: <Github size={20} />,
 		href: "https://github.com/" + data.githubUsername,
 		label: "Github",
 		handle: data.githubUsername,
 	});
-	if (data.socials.linkedin) {
-		socials.push({
-			icon: <Linkedin size={20} />,
-			href: "https://www.linkedin.com/in/" + encodeURIComponent(data.socials.linkedin.handle) + "/",
-			label: "LinkedIn",
-			handle: data.socials.linkedin.handle,
-		});
-	}
+
+	githubSocials.forEach((s) => {
+		switch (s.provider) {
+			case "linkedin":
+				contancts.push({
+					icon: <Linkedin size={20} />,
+					href: s.url,
+					label: s.provider,
+					// Extract last aprt of the url.
+					handle: s.url.split("/").pop(),
+				});
+				break;
+			default:
+				contancts.push({
+					icon: <User size={20} />,
+					href: s.url,
+					// Extract domain from url.
+					label: s.url.split("/")[2],
+					// Extract last part of the url. Might not make sense in some cases.
+					// handle: s.url.split("/").pop(),
+				});
+				break;
+		}
+	});
 
 	return (
 		<div className=" bg-gradient-to-tl from-zinc-900/0 via-zinc-900 to-zinc-900/0">
 			<Navigation />
 			<div className="container flex items-center justify-center min-h-screen px-4 mx-auto">
 				<div className="grid w-full grid-cols-1 gap-8 mx-auto mt-32 sm:mt-0 sm:grid-cols-3 lg:gap-16">
-					{socials.map((s) => {
+					{contancts.map((s) => {
 						// My email sucks, so I'm trying to make it fit in the grid.
 						const emailTransform = s.label === 'Email' ? 'sm:rotate-45 md:rotate-0 lg:rotate-45 xl:rotate-0' : '';
 
