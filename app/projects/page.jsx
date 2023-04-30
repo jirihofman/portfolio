@@ -4,21 +4,23 @@ import { Card } from "../components/card";
 import { Article } from "./article";
 import chunk from 'lodash/chunk';
 import data from "../../data.json";
-import { getRepos, getUser } from "../data";
+import { getRepos, getPinnedRepos } from "../data";
 // import { Redis } from "@upstash/redis";
 
 // const redis = Redis.fromEnv();
 
 export default async function ProjectsPage() {
 
-	const repositories = await getRepos(data.githubUsername);
-	const heroes = repositories.filter((project) => data.projects.heroNames.includes(project.name)).sort((a, b) => b.stargazers_count - a.stargazers_count);
+	const [repositories, pinnedNames] = await Promise.all([getRepos(data.githubUsername), getPinnedRepos(data.githubUsername)]);
+
+	// const heroes = repositories.filter((project) => data.projects.heroNames.includes(project.name)).sort((a, b) => b.stargazers_count - a.stargazers_count);
+	const heroes = repositories.filter((project) => pinnedNames.includes(project.name)).sort((a, b) => b.stargazers_count - a.stargazers_count);
 	const sorted = repositories
 		.filter((p) => !p.private)
 		.filter((p) => !p.fork)
 		.filter((p) => !p.archived)
 		// .filter((p) => p.name !== data.githubUsername)
-		.filter((p) => !data.projects.heroNames.includes(p.name))
+		.filter((p) => !pinnedNames.includes(p.name))
 		.filter((p) => !data.projects.blacklist.includes(p.name))
 		.sort(
 			(a, b) =>

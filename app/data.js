@@ -1,3 +1,4 @@
+import { cache } from 'react';
 const revalidate = 60;
 
 // TODO: Implement option to switch between info for authenticated user and other users.
@@ -24,3 +25,14 @@ export async function getSocialAccounts(username) {
 	});
 	return res.json();
 }
+
+export const getPinnedRepos = cache(async (username) => {
+	const res = await fetch('https://api.github.com/graphql', {
+		method: 'POST',
+		headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+		body: JSON.stringify({ query: `{user(login: "${username}") {pinnedItems(first: 6, types: REPOSITORY) {nodes {... on Repository {name}}}}}` }),
+	});
+	const pinned = await res.json();
+	const names = pinned.data.user.pinnedItems.nodes.map((node) => node.name);
+	return names;
+});

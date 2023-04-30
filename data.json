@@ -9,11 +9,6 @@
 	"position": "Software engineer at client.io",
 	"projects": {
 		"blacklist": [],
-		"heroNames": [
-			"random8",
-			"strawberry-scim",
-			"nextjs-fullstack-app-template",
-			"dali-jsme-jidlo"
-		]
+		"heroNames": []
 	}
 }
