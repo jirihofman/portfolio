@@ -1,10 +1,9 @@
 {
 	"description": "My hobby projects, most of them are Nextjs apps deployed to Vercel.",
-	"githubUsername": "jirihofman",
+	"githubUsername": "octocat",
 	"avatarUrl": "",
 	"displayName": "",
 	"email": "",
-	"position": "Software engineer at client.io",
 	"projects": {
 		"blacklist": [],
 		"heroNames": []

@@ -9,9 +9,11 @@ import { getRepos, getPinnedRepos } from "../data";
 
 // const redis = Redis.fromEnv();
 
+const username = process.env.GITHUB_USERNAME || data.githubUsername;
+
 export default async function ProjectsPage() {
 
-	const [repositories, pinnedNames] = await Promise.all([getRepos(data.githubUsername), getPinnedRepos(data.githubUsername)]);
+	const [repositories, pinnedNames] = await Promise.all([getRepos(username), getPinnedRepos(username)]);
 
 	// const heroes = repositories.filter((project) => data.projects.heroNames.includes(project.name)).sort((a, b) => b.stargazers_count - a.stargazers_count);
 	const heroes = repositories.filter((project) => pinnedNames.includes(project.name)).sort((a, b) => b.stargazers_count - a.stargazers_count);
@@ -19,7 +21,7 @@ export default async function ProjectsPage() {
 		.filter((p) => !p.private)
 		.filter((p) => !p.fork)
 		.filter((p) => !p.archived)
-		// .filter((p) => p.name !== data.githubUsername)
+		// .filter((p) => p.name !== username)
 		.filter((p) => !pinnedNames.includes(p.name))
 		.filter((p) => !data.projects.blacklist.includes(p.name))
 		.sort(

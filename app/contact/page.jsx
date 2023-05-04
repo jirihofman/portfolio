@@ -5,11 +5,13 @@ import { Card } from "../components/card";
 import data from "../../data.json";
 import { getUser, getSocialAccounts } from "../data";
 
+const username = process.env.GITHUB_USERNAME || data.githubUsername;
+
 export default async function Contacts() {
 
 	// Get both user and socials in parallel.
-	const userData = getUser(data.githubUsername);
-	const socialsData = getSocialAccounts(data.githubUsername);
+	const userData = getUser(username);
+	const socialsData = getSocialAccounts(username);
 	const [user, githubSocials] = await Promise.all([userData, socialsData]);
 	const email = user.email || data.email;
 	const contancts = [];
@@ -23,9 +25,9 @@ export default async function Contacts() {
 	}
 	contancts.push({
 		icon: <Github size={20} />,
-		href: "https://github.com/" + data.githubUsername,
+		href: "https://github.com/" + username,
 		label: "Github",
-		handle: data.githubUsername,
+		handle: username,
 	});
 
 	githubSocials.forEach((s) => {

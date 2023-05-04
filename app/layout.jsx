@@ -4,13 +4,16 @@ import LocalFont from "next/font/local";
 import { Analytics } from '@vercel/analytics/react';
 import data from "../data.json";
 
+const username = process.env.GITHUB_USERNAME || data.githubUsername;
+const displayName = data.displayName || username;
+
 /** @type {import('next').Metadata} */
 export const metadata = {
 	title: {
-		default: [data.displayName || data.githubUsername, '\'s portfolio'].join(""),
+		default: [username, '\'s portfolio'].join(""),
 		template: "%s | " + data.displayName + "'s portfolio",
 	},
-	description: data.position,
+	description: 'GitHub portfolio for ' + displayName,
 	robots: {
 		index: true,
 		follow: true,

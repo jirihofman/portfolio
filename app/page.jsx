@@ -4,6 +4,8 @@ import React from "react";
 import data from "../data.json";
 import { getUser, getUserOrganizations } from "./data";
 
+const username = process.env.GITHUB_USERNAME || data.githubUsername;
+
 const navigation = [
 	{ name: "Projects", href: "/projects" },
 	{ name: "Contact", href: "/contact" },
@@ -12,8 +14,8 @@ const navigation = [
 export default async function Home() {
 
 	const [user, organizations] = await Promise.all([
-		getUser(data.githubUsername),
-		getUserOrganizations(data.githubUsername),
+		getUser(username),
+		getUserOrganizations(username),
 	]);
 
 	return (
@@ -34,7 +36,7 @@ export default async function Home() {
 			<div className="hidden w-screen h-px animate-glow md:block animate-fade-left bg-gradient-to-r from-zinc-300/0 via-zinc-300/50 to-zinc-300/0" />
 
 			<h1 className="flex items-center z-10 text-4xl hover:scale-110 text-transparent duration-1000 cursor-default text-edge-outline animate-title font-display sm:text-6xl md:text-9xl whitespace-nowrap bg-clip-text bg-white p-5">
-				{data.githubUsername} <Image alt='👨‍💻' width={100} height={100} src={user.avatar_url || data.avatarUrl} className="float-right rounded-full mx-4"/>
+				{username} <Image alt='👨‍💻' width={100} height={100} src={user.avatar_url || data.avatarUrl} className="float-right rounded-full mx-4"/>
 			</h1>
 
 			<div className="hidden w-screen h-px animate-glow md:block animate-fade-right bg-gradient-to-r from-zinc-300/0 via-zinc-300/50 to-zinc-300/0" />
