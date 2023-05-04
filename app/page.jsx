@@ -46,7 +46,7 @@ export default async function Home() {
 					<p>I'm building stuff{
 						organizations.length > 0 ? <>
 							{" "}at{" "}
-							<span class="mt-3 overflow-hidden">
+							<span className="mt-3 overflow-hidden">
 								{organizations.map((org, i, a) =>
 									<>
 										{i > 0 && i < a.length - 1 && ', '}
@@ -58,7 +58,7 @@ export default async function Home() {
 											className="underline duration-500 hover:text-zinc-300"
 										>
 											<span className="text">{org.name}</span>
-											<Image class="ms-1 inline-block rounded-md" src={org.avatarUrl} alt={org.name} title={[org.name, org.description].filter(o=>!!o).join(': ')} width={24} height={24} />
+											<Image className="ms-1 inline-block rounded-md" src={org.avatarUrl} alt={org.name} title={[org.name, org.description].filter(o=>!!o).join(': ')} width={24} height={24} />
 										</Link>
 									</>
 								)}
