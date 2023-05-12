@@ -37,14 +37,13 @@ export const getPinnedRepos = cache(async (username) => {
 	return names;
 });
 
-export const getUserOrganizations = cache(async (username) => {
+export const getUserOrganizations = async (username) => {
 	const res = await fetch('https://api.github.com/graphql', {
+		cache: 'no-store',
 		method: 'POST',
 		headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
 		body: JSON.stringify({
 			query: `{user(login: "${username}") {organizations(first: 6) {nodes {name,websiteUrl,url,avatarUrl,description}}}}` }),
 	});
-	const pinned = await res.json();
-	const orgs = pinned.data.user.organizations.nodes;
-	return orgs;
-});
+	return res.json();
+};

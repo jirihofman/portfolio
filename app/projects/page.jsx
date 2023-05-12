@@ -9,10 +9,11 @@ import { getRepos, getPinnedRepos } from "../data";
 
 // const redis = Redis.fromEnv();
 
-const username = process.env.GITHUB_USERNAME || data.githubUsername;
-
-export default async function ProjectsPage() {
-
+export default async function ProjectsPage({
+	searchParams: { customUsername },
+}) {
+	
+	const username = customUsername || process.env.GITHUB_USERNAME || data.githubUsername;
 	const [repositories, pinnedNames] = await Promise.all([getRepos(username), getPinnedRepos(username)]);
 
 	// const heroes = repositories.filter((project) => data.projects.heroNames.includes(project.name)).sort((a, b) => b.stargazers_count - a.stargazers_count);

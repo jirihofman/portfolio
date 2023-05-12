@@ -1,11 +1,14 @@
 "use client";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from "react";
 
 export const Navigation = () => {
 	const ref = useRef(null);
 	const [isIntersecting, setIntersecting] = useState(true);
+	const searchParams = useSearchParams();
+	const customUsername = searchParams.get('customUsername');
 
 	useEffect(() => {
 		if (!ref.current) return;
@@ -29,13 +32,13 @@ export const Navigation = () => {
 				<div className="container flex flex-row-reverse items-center justify-between p-6 mx-auto">
 					<div className="flex justify-between gap-8 text-base">
 						<Link
-							href="/projects"
+							href={"/projects" + (customUsername ? `?customUsername=${customUsername}` : '')}
 							className="duration-200 text-zinc-400 hover:text-zinc-100"
 						>
 							Projects
 						</Link>
 						<Link
-							href="/contact"
+							href={"/contact" + (customUsername ? `?customUsername=${customUsername}` : '')}
 							className="duration-200 text-zinc-400 hover:text-zinc-100"
 						>
 							Contact
@@ -43,7 +46,7 @@ export const Navigation = () => {
 					</div>
 
 					<Link
-						href="/"
+						href={"/" + (customUsername ? `?customUsername=${customUsername}` : '')}
 						className="duration-200 text-zinc-300 hover:text-zinc-100"
 					>
 						<ArrowLeft className="w-6 h-6" />
