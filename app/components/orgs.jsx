@@ -5,11 +5,11 @@ import { getUserOrganizations } from "../data";
 export const ProfileOrganizations = async ({ username }) => {
 
 	// const organizations = Array.of(1,2,3,4).map(i => ({ name: 'ORG' + i, url: 'org' }))
-	const organizations = (await getUserOrganizations(username)).data.user.organizations.nodes;
-
+	const organizations = (await getUserOrganizations(username)).data.user?.organizations.nodes;
+console.log("organizations", organizations)
 	return (
 		<p>I'm building stuff{
-			organizations.length > 0 ? <>
+			organizations?.length > 0 ? <>
 				{" "}at{" "}
 				<span className="mt-3 overflow-hidden">
 					{organizations.map((org, i, a) =>

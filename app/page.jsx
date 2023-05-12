@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import React, { Suspense } from "react";
+import React from "react";
 import data from "../data.json";
 import { ProfileOrganizations } from "./components/orgs";
 import { getUser } from "./data";
@@ -8,7 +8,6 @@ import { getUser } from "./data";
 const navigation = [
 	{ name: "Projects", href: "/projects" },
 	{ name: "Contact", href: "/contact" },
-	{ name: "Try yourself", href: "/search" },
 ];
 
 export default function Home({
@@ -31,26 +30,21 @@ export default function Home({
 							{item.name}
 						</Link>
 					))}
+					<TryYourself customUsername={customUsername} />
 				</ul>
 			</nav>
 			<div className="hidden w-screen h-px animate-glow md:block animate-fade-left bg-gradient-to-r from-zinc-300/0 via-zinc-300/50 to-zinc-300/0" />
 
 			<h1 className="flex items-center z-10 text-4xl hover:scale-110 text-transparent duration-1000 cursor-default text-edge-outline animate-title font-display sm:text-6xl md:text-9xl whitespace-nowrap bg-clip-text bg-white p-5">
 				{username} 
-				<Suspense fallback={<p>...</p>}>
-					<UserIcon promise={promise} />
-				</Suspense>
+				<UserIcon promise={promise} />
 			</h1>
 
 			<div className="hidden w-screen h-px animate-glow md:block animate-fade-right bg-gradient-to-r from-zinc-300/0 via-zinc-300/50 to-zinc-300/0" />
 			<div className="my-16 text-center animate-fade-in">
 				<h2 className="text-lg text-zinc-500">
-					<Suspense fallback={<p>LOADDDDD</p>}>
-						<UserText promise={promise} />
-					</Suspense>
-					<Suspense fallback={<p>...</p>}>
-						<ProfileOrganizations username={username} />
-					</Suspense>
+					<UserText promise={promise} />
+					<ProfileOrganizations username={username} />
 				</h2>
 			</div>
 		</div>
@@ -73,4 +67,18 @@ const UserText = async ({ promise }) => {
 	return (
 		<p>Hi, my name is {user.name || data.displayName}{'. '}{user.bio}</p>
 	);
+};
+
+const TryYourself = ({ customUsername }) => {
+
+	const href = customUsername ? '/' : '/search';
+
+	return <Link
+		href={href}
+		className="text-lg duration-500 text-zinc-500 hover:text-zinc-300 border-dashed p-2 rounded border-2 border-zinc-500 hover:border-zinc-300"
+	>
+		{
+			customUsername ? 'Showing: ' + customUsername + ', click to cancel ❌' : 'Try yourself'
+		}
+	</Link>;
 };
