@@ -5,10 +5,11 @@ import { Card } from "../components/card";
 import data from "../../data.json";
 import { getUser, getSocialAccounts } from "../data";
 
-const username = process.env.GITHUB_USERNAME || data.githubUsername;
+export default async function Contacts({
+	searchParams: { customUsername },
+}) {
 
-export default async function Contacts() {
-
+	const username = customUsername || process.env.GITHUB_USERNAME || data.githubUsername;
 	// Get both user and socials in parallel.
 	const userData = getUser(username);
 	const socialsData = getSocialAccounts(username);
