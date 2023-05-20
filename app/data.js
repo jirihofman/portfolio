@@ -47,3 +47,14 @@ export const getUserOrganizations = async (username) => {
 	});
 	return res.json();
 };
+
+export const getVercelProjects = async () => {
+	if (!process.env.VC_TOKEN) {
+		console.log('No Vercel token found - no projects will be shown.');
+		return { projects: [] };
+	}
+	const res = await fetch('https://api.vercel.com/v9/projects', {
+		headers: { Authorization: `Bearer ${process.env.VC_TOKEN}` },
+	});
+	return res.json();
+};
