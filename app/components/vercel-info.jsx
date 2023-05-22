@@ -10,7 +10,7 @@ export const VercelInfo = async ({ info }) => {
 	// Icons copied from https://vercel.com/design/brands
 
 	const upgradeIcon = info.framework === 'nextjs' && nextjsVersion && nextjsVersion < nextjsLatestRelease.tagName
-		? <Popover button={'⏫'} content={<span><strong>Next.js</strong> {nextjsVersion} ➡️ {nextjsLatestRelease.tagName}</span>} />
+		? <Popover button={<span style={{ fontSize: 'medium' }}>⏫</span>} content={<span><strong>Next.js</strong> {nextjsVersion} ➡️ {nextjsLatestRelease.tagName}</span>} />
 		: null;
 
 	const vercelIcon = <Popover button={<svg aria-label="Vercel logomark" height="16" role="img" style={{ width: 'auto', overflow: 'visible' }} viewBox="0 0 74 64">
