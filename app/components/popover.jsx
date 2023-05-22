@@ -23,8 +23,8 @@ const Popover = ({ button, content }) => {
 				{button}
 			</button>
 			{isHovered && (
-				<div className="absolute right-1 mt-2 w-48 bg-white border border-gray-300 rounded-lg shadow-lg z-10">
-					<div className="p-4 text-sm">
+				<div className="absolute right-1 mt-2 w-48 bg-gray-300 bg-opacity-90 border border-gray-300 rounded-lg shadow-lg z-50">
+					<div className="p-2 text-sm text-black">
 						{content}
 					</div>
 				</div>
