@@ -1,5 +1,6 @@
 import { cache } from 'react';
 const revalidate = 60;
+const HOURS_12 = 60 * 60 * 12;
 
 // TODO: Implement option to switch between info for authenticated user and other users.
 export async function getUser(username) {
@@ -43,7 +44,8 @@ export const getUserOrganizations = async (username) => {
 		method: 'POST',
 		headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
 		body: JSON.stringify({
-			query: `{user(login: "${username}") {organizations(first: 6) {nodes {name,websiteUrl,url,avatarUrl,description}}}}` }),
+			query: `{user(login: "${username}") {organizations(first: 6) {nodes {name,websiteUrl,url,avatarUrl,description}}}}`
+		}),
 	});
 	return res.json();
 };
@@ -56,5 +58,65 @@ export const getVercelProjects = async () => {
 	const res = await fetch('https://api.vercel.com/v9/projects', {
 		headers: { Authorization: `Bearer ${process.env.VC_TOKEN}` },
 	});
+	// eg. expired token.
+	if (!res.ok) {
+		console.error('Vercel API returned an error.', res.status, res.statusText);
+		return { projects: [] };
+	}
 	return res.json();
 };
+
+/** Cache revalidated every 12 hours. */
+export const getNextjsLatestRelease = cache(async () => {
+	const res = await fetch('https://api.github.com/graphql', {
+		method: 'POST',
+		headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+		body: JSON.stringify({
+			query: `{
+				repository(name: "next.js", owner: "vercel") {
+					latestRelease {
+						tagName
+						updatedAt
+					}
+				}
+			}`
+		}),
+	});
+	if (!res.ok) {
+		console.error('GitHub API returned an error.', res.status, res.statusText);
+		return {};
+	}
+	const nextjsLatest = await res.json();
+
+	const result = {
+		tagName: nextjsLatest.data.repository.latestRelease.tagName.replace('v', ''),
+		updatedAt: nextjsLatest.data.repository.latestRelease.updatedAt,
+	}
+	return result;
+}, HOURS_12);
+
+export const getRepositoryPackageJson = cache(async (username, reponame) => {
+	const res = await fetch('https://api.github.com/graphql', {
+		method: 'POST',
+		headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+		body: JSON.stringify({
+			query: `{
+				repository(name: "${reponame}", owner: "${username}") {
+					object(expression: "HEAD:package.json") {
+						... on Blob {
+							text
+						}
+					}
+				}
+			}`
+		}),
+	});
+	const response = await res.json();
+	try {
+		const packageJson = JSON.parse(response.data.repository.object.text);
+		return packageJson;		
+	} catch (error) {
+		console.error('Error parsing package.json', error);
+		return {};
+	}
+}, HOURS_12);

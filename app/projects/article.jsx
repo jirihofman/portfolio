@@ -18,7 +18,7 @@ export const Article = ({ project }) => {
                 <span className="text-zinc-500 text-xs flex items-center gap-1 ">
                     {/* <Eye className="w-4 h-4" />{" "}
                     {Intl.NumberFormat("en-US", { notation: "compact" }).format(project.watchers_count)} */}
-                    {project.vercel && <VercelInfo info={project.vercel} />}
+                    {project.vercel && <VercelInfo info={{ ...project.vercel, owner: project.owner }} />}
                     <Star className="w-4 h-4" />{" "}
                     {Intl.NumberFormat("en-US", { notation: "compact" }).format(project.stargazers_count)}
                 </span>
