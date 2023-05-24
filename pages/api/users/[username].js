@@ -9,8 +9,7 @@ const users = async (req, res) => {
 		headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
 	});
 	const data = await response.json();
-	// const data = await getUser(username);
-	console.log("asdasdada", data)
+
 	return res.status(200).json(data);
 };
 
