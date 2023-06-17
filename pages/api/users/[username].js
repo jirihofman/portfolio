@@ -1,10 +1,7 @@
-// import { getUser } from '../../../app/data';
-
 const users = async (req, res) => {
 
 	const { username } = req.query;
 
-	console.log("username", username)
 	const response = await fetch('https://api.github.com/users/' + username, {
 		headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
 	});
