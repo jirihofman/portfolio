@@ -16,7 +16,7 @@
     "framer-motion": "^10.9.1",
     "lodash": "^4.17.21",
     "lucide-react": "^0.127.0",
-    "next": "^13.4.3",
+    "next": "^13.4.12",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-icons": "^4.8.0",
