@@ -1,4 +1,4 @@
-import { Github, Linkedin, Mail, User } from "lucide-react";
+import { MarkGithubIcon, MailIcon, PersonIcon, LinkIcon } from '@primer/octicons-react';
 import Link from "next/link";
 import { Navigation } from "../components/nav";
 import { Card } from "../components/card";
@@ -18,14 +18,14 @@ export default async function Contacts({
 	const contancts = [];
 	if (email) {
 		contancts.push({
-			icon: <Mail size={20} />,
+			icon: <MailIcon size={20} />,
 			href: "mailto:" + email,
 			label: "Email",
 			handle: email,
 		});
 	}
 	contancts.push({
-		icon: <Github size={20} />,
+		icon: <MarkGithubIcon size={20} />,
 		href: "https://github.com/" + username,
 		label: "Github",
 		handle: username,
@@ -35,7 +35,7 @@ export default async function Contacts({
 		switch (s.provider) {
 			case "linkedin":
 				contancts.push({
-					icon: <Linkedin size={20} />,
+					icon: <LinkIcon size={20} />,
 					href: s.url,
 					label: s.provider,
 					// Extract last aprt of the url.
@@ -44,7 +44,7 @@ export default async function Contacts({
 				break;
 			default:
 				contancts.push({
-					icon: <User size={20} />,
+					icon: <PersonIcon size={20} />,
 					href: s.url,
 					// Extract domain from url.
 					label: s.url.split("/")[2],

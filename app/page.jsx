@@ -3,6 +3,7 @@ import Image from "next/image";
 import React from "react";
 import data from "../data.json";
 import { ProfileOrganizations } from "./components/orgs";
+import { RecentActivity } from "./components/recent-activity";
 import { getUser } from "./data";
 
 const navigation = [
@@ -45,6 +46,7 @@ export default function Home({
 				<h2 className="text-lg text-zinc-500">
 					<UserText promise={promise} />
 					<ProfileOrganizations username={username} />
+					<RecentActivity username={username} />
 				</h2>
 			</div>
 		</div>

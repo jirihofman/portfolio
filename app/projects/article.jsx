@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Github, Star } from "lucide-react";
+import { MarkGithubIcon, StarIcon } from '@primer/octicons-react';
 import { VercelInfo } from "../components/vercel-info";
 
 export const Article = ({ project }) => {
@@ -19,7 +19,7 @@ export const Article = ({ project }) => {
                     {/* <Eye className="w-4 h-4" />{" "}
                     {Intl.NumberFormat("en-US", { notation: "compact" }).format(project.watchers_count)} */}
                     {project.vercel && <VercelInfo info={{ ...project.vercel, owner: project.owner }} />}
-                    <Star className="w-4 h-4" />{" "}
+                    <StarIcon className="w-4 h-4" />{" "}
                     {Intl.NumberFormat("en-US", { notation: "compact" }).format(project.stargazers_count)}
                 </span>
             </div>
@@ -35,7 +35,7 @@ export const Article = ({ project }) => {
             </p>
             <div className="flex justify-between gap-2 items-center float-right mt-2 border-t-2 border-gray-700">
                 <span className="text-zinc-500 text-xs flex items-center gap-1" title="GitHub repository link.">
-                    <Github className="w-4 h-4" /><Link href={project.html_url} className="hover:text-blue-800">{project.name}</Link>
+                    <MarkGithubIcon className="w-4 h-4" /><Link href={project.html_url} className="hover:text-blue-800">{project.name}</Link>
                 </span>
             </div>
         </article>

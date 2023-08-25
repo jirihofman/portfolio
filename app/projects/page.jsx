@@ -1,10 +1,11 @@
 import React from "react";
 import { Navigation } from "../components/nav";
 import { Card } from "../components/card";
+// import { UserTimeline } from "../components/timeline";
 import { Article } from "./article";
 import chunk from 'lodash/chunk';
 import data from "../../data.json";
-import { getRepos, getPinnedRepos, getVercelProjects } from "../data";
+import { getRepos, getPinnedRepos, getVercelProjects, getRecentUserActivity } from "../data";
 // import { Redis } from "@upstash/redis";
 
 // const redis = Redis.fromEnv();
@@ -15,6 +16,7 @@ export default async function ProjectsPage({
     
     const username = customUsername || process.env.GITHUB_USERNAME || data.githubUsername;
     const [repositories, pinnedNames, vercelProjects] = await Promise.all([getRepos(username), getPinnedRepos(username), getVercelProjects()]);
+    const recentUserActivity = await getRecentUserActivity(username);
 
     // interested only in the project name, link, framework and description
     // interested only in Vercel projects that are linked to GitHub repositories
@@ -124,6 +126,17 @@ export default async function ProjectsPage({
                             ))}
                     </div>
                 </div>
+
+                {/* TODO: Shows user's recent activity as a GitHub timeline */}
+                {/* <div className="max-w-2xl mx-auto lg:mx-0">
+                    <h2 className="text-3xl font-bold tracking-tight text-zinc-100 sm:text-4xl">
+                        <MarkGithubIcon size={48} /> Activity
+                    </h2>
+                    <p className="mt-4 text-zinc-400">
+                        My recent GitHub activity. Displaying up to 10 events.
+                    </p>
+                    {/* <UserTimeline recentUserActivity={recentUserActivity} /> */}
+                {/* </div> */}
             </div>
         </div>
     );
