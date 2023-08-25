@@ -120,3 +120,11 @@ export const getRepositoryPackageJson = cache(async (username, reponame) => {
 		return {};
 	}
 }, HOURS_12);
+
+export const getRecentUserActivity = cache(async (username) => {
+	const res = await fetch('https://api.github.com/users/' + username + '/events', {
+		headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+	});
+	const response = await res.json();
+	return response;
+}, HOURS_12);

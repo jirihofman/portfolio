@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeftIcon } from "@primer/octicons-react";
 import Link from "next/link";
 import React from "react";
 import UserSearch from "../components/search-input";
@@ -24,7 +24,7 @@ export default function Home({
 					href={"/"}
 					className="duration-200 text-zinc-300 hover:text-zinc-100"
 				>
-					<ArrowLeft className="w-6 h-6" />
+					<ArrowLeftIcon className="w-6 h-6" />
 				</Link>
 			</div>
 			<nav className="my-16 animate-fade-in" />

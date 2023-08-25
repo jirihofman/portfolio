@@ -1,7 +1,7 @@
 'use client';
 import React, { useState } from "react";
 import Link from "next/link";
-import { Loader, Search } from "lucide-react";
+import { SearchIcon, ClockIcon } from "@primer/octicons-react";
 
 const UserSearch = ({ user }) => {
 
@@ -46,7 +46,7 @@ const UserSearch = ({ user }) => {
 					onClick={handleSearch}
 					disabled={loading}
 				>
-					{loading ? <Loader size={20} /> : <Search size={20} />}
+					{loading ? <ClockIcon size={20} /> : <SearchIcon size={20} />}
 				</button>
 				{loading ? null :
 					<div>
@@ -61,7 +61,7 @@ const UserSearch = ({ user }) => {
 									{userExists !== -1 && newUsername && newUsername !== user ?
 										<span className="text-red-500">User <strong>{newUsername}</strong> not found.</span> :
 										<span className="inline-flex items-baseline text-zinc-500">
-											<span className="pe-2">Click</span><Search size={16} />
+											<span className="pe-2">Click</span><SearchIcon size={16} />
 											<span className="ps-2">to search GitHub.</span>
 										</span>}
 								</span>
