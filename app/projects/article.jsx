@@ -20,8 +20,9 @@ export const Article = async ({ project }) => {
 
         const alertColor = openAlertsBySeverity.critical > 0 ? "red" : openAlertsBySeverity.high > 0 ? "orange" : openAlertsBySeverity.medium > 0 ? "yellow" : openAlertsBySeverity.low > 0 ? "blue" : "gray";
         const alertCountTotal = (openAlertsBySeverity.critical || 0) + (openAlertsBySeverity.high || 0) + (openAlertsBySeverity.medium || 0) + (openAlertsBySeverity.low || 0);
+        const alertTitle = alertCountTotal > 0 ? `Open Dependabot alerts: ` + (JSON.stringify(openAlertsBySeverity)) : "No open Dependabot alerts.";
         
-        alerts = <span title={`Open Dependabot alerts: ` + (JSON.stringify(openAlertsBySeverity))}>
+        alerts = <span title={alertTitle}>
             <DependabotIcon className="w-4 h-4 danger" fill={alertColor} />{" "}            
             {Intl.NumberFormat("en-US", { notation: "compact" }).format(alertCountTotal)}
         </span>;
