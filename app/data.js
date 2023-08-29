@@ -1,5 +1,6 @@
 import { cache } from 'react';
 const revalidate = 60;
+const HOURS_1 = 60 * 60;
 const HOURS_12 = 60 * 60 * 12;
 
 // TODO: Implement option to switch between info for authenticated user and other users.
@@ -127,4 +128,38 @@ export const getRecentUserActivity = cache(async (username) => {
 	});
 	const response = await res.json();
 	return response;
+}, HOURS_12);
+
+export const getTrafficPageViews = cache(async (username, reponame) => {
+	const res = await fetch('https://api.github.com/repos/' + username + '/' + reponame + '/traffic/views', {
+		headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+	});
+	const response = await res.json();
+
+	const sumViews = response.views?.reduce((a, b) => a + b.count, 0) || 0;
+	const sumUniques = response.views?.reduce((a, b) => a + b.uniques, 0) || 0;
+	const todayUniques = response.views && response.views[response.views?.length - 1]?.uniques || 0;
+
+	return { sumViews, sumUniques, todayUniques };
+}, HOURS_1);
+
+export const getDependabotAlerts = cache(async (username, reponame) => {
+	const res = await fetch('https://api.github.com/repos/' + username + '/' + reponame + '/dependabot/alerts', {
+		headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+	});
+
+	const response = await res.json();
+
+	// Id dependabot is not enabled, the response will be an object, not an array.
+	if (response.length === undefined) {
+		return [];
+	}
+	const openAlertsBySeverity = response.reduce((acc, alert) => {
+		if (alert.state === 'open') {
+			acc[alert.security_advisory.severity] = acc[alert.security_advisory.severity] ? acc[alert.security_advisory.severity] + 1 : 1;
+		}
+		return acc;
+	}, {});
+
+	return openAlertsBySeverity;
 }, HOURS_12);
