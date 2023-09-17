@@ -163,3 +163,46 @@ export const getDependabotAlerts = cache(async (username, reponame) => {
 
 	return openAlertsBySeverity;
 }, HOURS_12);
+
+/**
+ * Determines if a repository is using Next.js App Router or legacy pages/_app.jsx. Or both.
+ * @param {*} repoOwner GitHub username
+ * @param {string} repoName repository name
+ * @returns Object with two booleans: isRouterPages and isRouterApp
+ */
+export async function checkAppJsxExistence(repoOwner, repoName) {
+
+	const urlPagesApp = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/pages/_app.jsx`;
+	// TODO: Add more possible ways to check for App Router.
+	const urlAppLayout = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/app/layout.jsx`;
+
+	const res = {
+		isRouterPages: false,
+		isRouterApp: false,
+	};
+
+	try {
+		const [ isPagesRes, isAppLayoutRes ] = await Promise.all([
+			fetch(urlPagesApp, {
+				headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+				next: { HOURS_12 }
+			}),
+			fetch(urlAppLayout, {
+				headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+				next: { HOURS_12 }
+			}),
+		]);
+
+		if (isPagesRes.status === 200) {
+			res.isRouterPages = true;
+		}
+
+		if (isAppLayoutRes.status === 200) {
+			res.isRouterApp = true;
+		}
+	} catch (error) {
+		console.error(`Error checking _app.jsx existence in ${repoName}: ${error.message}`);
+	}
+
+	return res;
+}
