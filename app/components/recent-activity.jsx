@@ -1,6 +1,3 @@
-"use server";
-
-// import { GitBranchIcon, GitCommitIcon, GitPullRequestIcon, TagIcon } from '@primer/octicons-react';
 import { getRecentUserActivity } from "../data";
 
 export const RecentActivity = async ({ username }) => {

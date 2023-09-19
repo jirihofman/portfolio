@@ -2,8 +2,6 @@
 const nextConfig = {
 	pageExtensions: ["js", "jsx", "ts", "tsx", "md", "mdx"],
 	experimental: {
-		// TODO: remove when not experimental. Enable Turbopack then.
-		serverActions: true,
 		// mdxRs: true,
 	},
 	images: {
