@@ -1,9 +1,9 @@
 {
   "name": "portfolio",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": false,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbo",
     "build": "npm run setup && next build",
     "build-only": "next build",
     "start": "next start",
