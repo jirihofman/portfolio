@@ -12,11 +12,10 @@ export const ProfileOrganizations = async ({ username }) => {
 				{" "}at{" "}
 				<span className="mt-3 overflow-hidden">
 					{organizations.map((org, i, a) =>
-						<>
+						<span key={org.name}>
 							{i > 0 && i < a.length - 1 && ', '}
 							{i > 0 && i === a.length - 1 && ' and '}
 							<Link
-								key={org.name}
 								target="_blank"
 								href={org.websiteUrl || org.url}
 								className="underline duration-500 hover:text-zinc-300"
@@ -24,7 +23,7 @@ export const ProfileOrganizations = async ({ username }) => {
 								<span className="text">{org.name}</span>
 								<Image className="ms-1 inline-block rounded-md" src={org.avatarUrl} alt={org.name} title={[org.name, org.description].filter(o => !!o).join(': ')} width={24} height={24} />
 							</Link>
-						</>
+						</span>
 					)}
 				</span>
 			</> : '.'

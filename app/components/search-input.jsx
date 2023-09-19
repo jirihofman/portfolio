@@ -38,11 +38,11 @@ const UserSearch = ({ user }) => {
                 <label className="block text-white text-sm font-bold mb-1" htmlFor="username">
                     GitHub username
                 </label>
-                <div class="flex justify-end items-center relative">
+                <div className="flex justify-end items-center relative">
                     <input
                         placeholder="Search GitHub"
                         type="text"
-                        class="border border-gray-400 rounded-lg p-4 w-full"
+                        className="border border-gray-400 rounded-lg p-4 w-full"
                         value={username}
                         onChange={handleUsernameChange}
                         onKeyDown={(e) => {
