@@ -8,7 +8,7 @@ export async function getUser(username) {
 	console.log('Fetching user data for', username);
 	const res = await fetch('https://api.github.com/users/' + username, {
 		headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-		cache: 'no-store'
+		next: { revalidate }
 	});
 	return res.json();
 }
