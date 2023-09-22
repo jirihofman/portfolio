@@ -5,6 +5,7 @@ const HOURS_12 = 60 * 60 * 12;
 
 // TODO: Implement option to switch between info for authenticated user and other users.
 export async function getUser(username) {
+	console.log('Fetching user data for', username);
 	const res = await fetch('https://api.github.com/users/' + username, {
 		headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
 		next: { revalidate }
