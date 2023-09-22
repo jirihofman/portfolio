@@ -62,9 +62,9 @@ const UserSearch = ({ user }) => {
                     {
                         userExists > 1 ?
                             <span className="bg-gradient-to-r from-purple-400 to-blue-500 hover:from-pink-500 hover:to-yellow-500 text-transparent bg-clip-text px-6">
-                                <Link href={`/?customUsername=${username}`}>
+                                <a href={`/?customUsername=${username}`}>
                                     Preview user: <span className="font-bold">{username}</span>
-                                </Link>
+                                </a>
                             </span> :
                             <span className=" px-6">
                                 {userExists !== -1 && newUsername && newUsername !== user ?
