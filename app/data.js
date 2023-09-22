@@ -7,8 +7,7 @@ const HOURS_12 = 60 * 60 * 12;
 export async function getUser(username) {
 	const res = await fetch('https://api.github.com/users/' + username, {
 		headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-		cache: 'no-store',
-		next: { revalidate: 0 }
+		cache: 'no-store'
 	});
 	return res.json();
 }
