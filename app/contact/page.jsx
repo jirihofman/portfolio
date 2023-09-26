@@ -5,6 +5,8 @@ import { Card } from "../components/card";
 import data from "../../data.json";
 import { getUser, getSocialAccounts } from "../data";
 
+export const runtime = 'edge'; 
+
 export default async function Contacts({
 	searchParams: { customUsername },
 }) {

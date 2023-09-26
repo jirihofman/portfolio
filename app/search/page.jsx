@@ -3,10 +3,7 @@ import Link from "next/link";
 import React from "react";
 import UserSearch from "../components/search-input";
 
-const navigation = [
-	{ name: "Projects", href: "/projects" },
-	{ name: "Contact", href: "/contact" },
-];
+export const runtime = 'edge';
 
 export default function Home({
 	searchParams: { customUsername },
