@@ -1,5 +1,6 @@
 import { cache } from 'react';
 const revalidate = 60;
+const MINUTES_5 = 60 * 5;
 const HOURS_1 = 60 * 60;
 const HOURS_12 = 60 * 60 * 12;
 
@@ -27,10 +28,13 @@ export async function getRepos(username) {
 }
 
 export async function getSocialAccounts(username) {
+	console.log('Fetching social accounts for', username);
+	console.time('getSocialAccounts');
 	const res = await fetch('https://api.github.com/users/' + username + '/social_accounts', {
 		headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-		next: { revalidate }
+		next: { MINUTES_5 }
 	});
+	console.timeEnd('getSocialAccounts');
 	return res.json();
 }
 
@@ -52,7 +56,7 @@ export const getUserOrganizations = async (username) => {
 	console.log('Fetching organizations for', username);
 	console.time('getUserOrganizations');
 	const res = await fetch('https://api.github.com/graphql', {
-		cache: 'no-store',
+		next: { MINUTES_5 },
 		method: 'POST',
 		headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
 		body: JSON.stringify({
@@ -68,9 +72,12 @@ export const getVercelProjects = async () => {
 		console.log('No Vercel token found - no projects will be shown.');
 		return { projects: [] };
 	}
+	console.log('Fetching Vercel projects');
+	console.time('getVercelProjects');
 	const res = await fetch('https://api.vercel.com/v9/projects', {
 		headers: { Authorization: `Bearer ${process.env.VC_TOKEN}` },
 	});
+	console.timeEnd('getVercelProjects');
 	// eg. expired token.
 	if (!res.ok) {
 		console.error('Vercel API returned an error.', res.status, res.statusText);
@@ -135,10 +142,13 @@ export const getRepositoryPackageJson = cache(async (username, reponame) => {
 }, HOURS_12);
 
 export const getRecentUserActivity = cache(async (username) => {
+	console.log('Fetching recent activity for', username);
+	console.time('getRecentUserActivity');
 	const res = await fetch('https://api.github.com/users/' + username + '/events', {
 		headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
 	});
 	const response = await res.json();
+	console.timeEnd('getRecentUserActivity');
 	return response;
 }, HOURS_12);
 
