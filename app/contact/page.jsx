@@ -5,7 +5,8 @@ import { Card } from "../components/card";
 import data from "../../data.json";
 import { getUser, getSocialAccounts } from "../data";
 
-export const runtime = 'edge'; 
+// TODO: make it edge once Turbopack supports it.
+export const runtime = 'nodejs';
 
 export default async function Contacts({
 	searchParams: { customUsername },
