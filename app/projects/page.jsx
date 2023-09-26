@@ -9,7 +9,6 @@ import { getRepos, getPinnedRepos, getVercelProjects } from "../data";
 // import { Redis } from "@upstash/redis";
 
 // const redis = Redis.fromEnv();
-export const runtime = 'nodejs';
 
 export default async function ProjectsPage({
     searchParams: { customUsername },
