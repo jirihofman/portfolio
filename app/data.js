@@ -6,18 +6,23 @@ const HOURS_12 = 60 * 60 * 12;
 // TODO: Implement option to switch between info for authenticated user and other users.
 export async function getUser(username) {
 	console.log('Fetching user data for', username);
+	console.time('getUser');
 	const res = await fetch('https://api.github.com/users/' + username, {
 		headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
 		next: { revalidate }
 	});
+	console.timeEnd('getUser');
 	return res.json();
 }
 
 export async function getRepos(username) {
+	console.log('Fetching repos for', username);
+	console.time('getRepos');
 	const res = await fetch('https://api.github.com/users/' + username + '/repos', {
 		headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
 		next: { revalidate }
 	});
+	console.timeEnd('getRepos');
 	return res.json();
 }
 
@@ -30,17 +35,22 @@ export async function getSocialAccounts(username) {
 }
 
 export const getPinnedRepos = cache(async (username) => {
+	console.log('Fetching pinned repos for', username);
+	console.time('getPinnedRepos');
 	const res = await fetch('https://api.github.com/graphql', {
 		method: 'POST',
 		headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
 		body: JSON.stringify({ query: `{user(login: "${username}") {pinnedItems(first: 6, types: REPOSITORY) {nodes {... on Repository {name}}}}}` }),
 	});
 	const pinned = await res.json();
+	console.timeEnd('getPinnedRepos');
 	const names = pinned.data.user.pinnedItems.nodes.map((node) => node.name);
 	return names;
 });
 
 export const getUserOrganizations = async (username) => {
+	console.log('Fetching organizations for', username);
+	console.time('getUserOrganizations');
 	const res = await fetch('https://api.github.com/graphql', {
 		cache: 'no-store',
 		method: 'POST',
@@ -49,6 +59,7 @@ export const getUserOrganizations = async (username) => {
 			query: `{user(login: "${username}") {organizations(first: 6) {nodes {name,websiteUrl,url,avatarUrl,description}}}}`
 		}),
 	});
+	console.timeEnd('getUserOrganizations');
 	return res.json();
 };
 
