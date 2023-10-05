@@ -152,18 +152,22 @@ export const getRecentUserActivity = cache(async (username) => {
 	return response;
 }, HOURS_12);
 
-export const getTrafficPageViews = cache(async (username, reponame) => {
+export const getTrafficPageViews = async (username, reponame) => {
 	const res = await fetch('https://api.github.com/repos/' + username + '/' + reponame + '/traffic/views', {
 		headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+		next: { revalidate: HOURS_1 }
 	});
 	const response = await res.json();
 
-	const sumViews = response.views?.reduce((a, b) => a + b.count, 0) || 0;
-	const sumUniques = response.views?.reduce((a, b) => a + b.uniques, 0) || 0;
-	const todayUniques = response.views && response.views[response.views?.length - 1]?.uniques || 0;
+	const sumUniques = response.uniques || 0;
 
-	return { sumViews, sumUniques, todayUniques };
-}, HOURS_1);
+	// Today date in format YYYY-MM-DD.
+	const today = new Date().toISOString().slice(0, 10);
+	// Last day with at least one view.
+	const todayUniques = response.views?.find((day) => day.timestamp.startsWith(today))?.uniques || 0;
+
+	return { sumUniques, todayUniques };
+};
 
 export const getDependabotAlerts = cache(async (username, reponame) => {
 	const res = await fetch('https://api.github.com/repos/' + username + '/' + reponame + '/dependabot/alerts', {
