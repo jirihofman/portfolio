@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { getNextjsLatestRelease, getRepositoryPackageJson, checkAppJsxExistence } from '../data';
 import Popover from './popover';
 
@@ -18,6 +19,11 @@ export const VercelInfo = async ({ info }) => {
 	} else if (!isRouterPages && !isRouterApp) {
 		labelNext = labelNext + ' using neither Pages nor App Router';
 	}
+
+	let isUsingTurbopack = pJson?.scripts?.dev?.includes('--turbo') || false;
+	const turboIcon = isUsingTurbopack
+		? <Popover button={<Image height={16} width={16} style={{ fontSize: 'medium' }} src='https://turbo.build/images/docs/pack/turbo-benchmark-icon-dark.svg' />} content={<span>Using Turbopack</span>} />
+		: null;
 
 	// Icons copied from https://vercel.com/design/brands
 
@@ -41,6 +47,7 @@ export const VercelInfo = async ({ info }) => {
 			<span>{upgradeIcon}</span>
 			<span>{frameworkIcon}</span>
 			<span>{vercelIcon}</span>
+			<span>{turboIcon}</span>
 		</span>
 	);
 };
