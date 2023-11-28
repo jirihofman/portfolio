@@ -12,7 +12,6 @@
   "dependencies": {
     "@primer/octicons-react": "^19.8.0",
     "@primer/react": "^35.32.2",
-    "@upstash/redis": "^1.20.6",
     "@vercel/analytics": "^1.1.1",
     "dotenv": "^16.3.1",
     "eslint-config-next": "^14.0.2",

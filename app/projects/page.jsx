@@ -6,16 +6,21 @@ import { Article } from "./article";
 import chunk from 'lodash/chunk';
 import data from "../../data.json";
 import { getRepos, getPinnedRepos, getVercelProjects } from "../data";
-// import { Redis } from "@upstash/redis";
-
-// const redis = Redis.fromEnv();
 
 export default async function ProjectsPage({
     searchParams: { customUsername },
 }) {
     
     const username = customUsername || process.env.GITHUB_USERNAME || data.githubUsername;
-    const [repositories, pinnedNames, vercelProjects] = await Promise.all([getRepos(username), getPinnedRepos(username), getVercelProjects()]);
+    const [
+        repositories,
+        pinnedNames,
+        vercelProjects
+    ] = await Promise.all([
+        getRepos(username),
+        getPinnedRepos(username),
+        getVercelProjects()
+    ]);
 
     // interested only in the project name, link, framework and description
     // interested only in Vercel projects that are linked to GitHub repositories

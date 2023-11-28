@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from "react";
-import Link from "next/link";
 import { SearchIcon } from "@primer/octicons-react";
 import { Spinner } from "@primer/react";
 
