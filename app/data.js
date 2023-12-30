@@ -22,7 +22,7 @@ export async function getRepos(username) {
 	console.time('getRepos');
 	const res = await fetch('https://api.github.com/users/' + username + '/repos', {
 		headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-		next: { revalidate }
+		next: { revalidate: MINUTES_5 }
 	});
 	console.timeEnd('getRepos');
 	return res.json();
