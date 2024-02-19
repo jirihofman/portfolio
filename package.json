@@ -24,7 +24,7 @@
     "react-wrap-balancer": "^0.4.0"
   },
   "devDependencies": {
-    "@opentelemetry/api": "^1.4.1",
+    "@opentelemetry/api": "^1.7.0",
     "@tailwindcss/line-clamp": "^0.4.4",
     "@tailwindcss/typography": "^0.5.9",
     "autoprefixer": "^10.4.17",
