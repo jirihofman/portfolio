@@ -14,7 +14,7 @@
     "@primer/react": "^35.32.2",
     "@vercel/analytics": "^1.1.1",
     "dotenv": "^16.3.1",
-    "eslint-config-next": "^14.0.2",
+    "eslint-config-next": "^14.1.0",
     "framer-motion": "^10.16.4",
     "lodash": "^4.17.21",
     "next": "^14.1.0",
