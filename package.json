@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@primer/octicons-react": "^19.8.0",
-    "@primer/react": "^36.9.0",
+    "@primer/react": "^36.10.0",
     "@vercel/analytics": "^1.2.2",
     "dotenv": "^16.4.5",
     "eslint-config-next": "^14.1.0",
