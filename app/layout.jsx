@@ -1,7 +1,6 @@
 import "../global.css";
 import { Inter } from "next/font/google";
 import LocalFont from "next/font/local";
-import { Analytics } from '@vercel/analytics/react';
 import data from "../data.json";
 
 const username = process.env.GITHUB_USERNAME || data.githubUsername;
@@ -54,7 +53,6 @@ export default function RootLayout({
 					process.env.NODE_ENV === "development" ? "debug-screens" : ''
 				}`}
 			>
-				<Analytics />
 				{children}
 			</body>
 		</html>
