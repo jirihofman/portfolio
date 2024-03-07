@@ -1,7 +1,7 @@
 import { getRecentUserActivity } from "../data";
 
 export const RecentActivity = async ({ username }) => {
-    
+
     const recentUserActivity = await getRecentUserActivity(username);
     const activitySummary = recentUserActivity.reduce((acc, activity) => {
 

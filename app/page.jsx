@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import React from "react";
+import React, { Suspense } from "react";
 import data from "../data.json";
 import { ProfileOrganizations } from "./components/orgs";
 import { RecentActivity } from "./components/recent-activity";
@@ -11,46 +11,13 @@ const navigation = [
 	{ name: "Contact", href: "/contact" },
 ];
 
-export default function Home({
-	searchParams: { customUsername },
-}) {
-
-	const username = customUsername || process.env.GITHUB_USERNAME || data.githubUsername;
-	const promise = getUser(username);
+export default function Home({ searchParams }) {
 
 	return (
-		<div className="flex flex-col items-center justify-center w-screen h-screen overflow-hidden bg-gradient-to-tl from-black via-zinc-600/20 to-black">
-			<nav className="my-16 animate-fade-in">
-				<ul className="flex items-center justify-center gap-4">
-					{navigation.map((item) => (
-						<Link
-							key={item.href}
-							href={item.href + (customUsername ? `?customUsername=${customUsername}` : '')}
-							className="text-lg duration-500 text-zinc-500 hover:text-zinc-300"
-						>
-							{item.name}
-						</Link>
-					))}
-					<TryYourself customUsername={customUsername} />
-				</ul>
-			</nav>
-			<div className="hidden w-screen h-px animate-glow md:block animate-fade-left bg-gradient-to-r from-zinc-300/0 via-zinc-300/50 to-zinc-300/0" />
-
-			<h1 className="flex items-center z-10 text-4xl hover:scale-110 text-transparent duration-1000 cursor-default text-edge-outline animate-title font-display sm:text-6xl md:text-9xl whitespace-nowrap bg-clip-text bg-white p-5">
-				{username} 
-				<UserIcon promise={promise} />
-			</h1>
-
-			<div className="hidden w-screen h-px animate-glow md:block animate-fade-right bg-gradient-to-r from-zinc-300/0 via-zinc-300/50 to-zinc-300/0" />
-			<div className="my-16 text-center animate-fade-in">
-				<h2 className="text-lg text-zinc-500">
-					<UserText promise={promise} />
-					<ProfileOrganizations username={username} />
-					<RecentActivity username={username} />
-				</h2>
-			</div>
-		</div>
-	);
+		<Suspense fallback={<p className="text-lg text-zinc-500">Loading...</p>}>
+			<LandingComponent searchParams={searchParams} />
+		</Suspense>
+	)
 }
 
 const UserIcon = async ({ promise }) => {
@@ -84,3 +51,45 @@ const TryYourself = ({ customUsername }) => {
 		}
 	</Link>;
 };
+
+const LandingComponent = async ({ searchParams: { customUsername } }) => {
+
+	const username = customUsername || process.env.GITHUB_USERNAME || data.githubUsername;
+	const promise = getUser(username);
+
+	return (
+		<div className="flex flex-col items-center justify-center w-screen h-screen overflow-hidden bg-gradient-to-tl from-black via-zinc-600/20 to-black">
+			<nav className="my-16 animate-fade-in">
+				<ul className="flex items-center justify-center gap-4">
+					{navigation.map((item) => (
+						<Link
+							key={item.href}
+							href={item.href + (customUsername ? `?customUsername=${customUsername}` : '')}
+							className="text-lg duration-500 text-zinc-500 hover:text-zinc-300"
+						>
+							{item.name}
+						</Link>
+					))}
+					<TryYourself customUsername={customUsername} />
+				</ul>
+			</nav>
+			<div className="hidden w-screen h-px animate-glow md:block animate-fade-left bg-gradient-to-r from-zinc-300/0 via-zinc-300/50 to-zinc-300/0" />
+
+			<h1 className="flex items-center z-10 text-4xl hover:scale-110 text-transparent duration-1000 cursor-default text-edge-outline animate-title font-display sm:text-6xl md:text-9xl whitespace-nowrap bg-clip-text bg-white p-5">
+				{username}
+				<UserIcon promise={promise} />
+			</h1>
+
+			<div className="hidden w-screen h-px animate-glow md:block animate-fade-right bg-gradient-to-r from-zinc-300/0 via-zinc-300/50 to-zinc-300/0" />
+			<div className="my-16 text-center animate-fade-in">
+				<h2 className="text-lg text-zinc-500">
+					<Suspense fallback={<p>Loading...</p>}>
+						<UserText promise={promise} />
+						<ProfileOrganizations username={username} />
+						<RecentActivity username={username} />
+					</Suspense>
+				</h2>
+			</div>
+		</div>
+	);
+}
