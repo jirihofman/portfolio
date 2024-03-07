@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import React from "react";
+import React, { Suspense } from "react";
 import data from "../data.json";
 import { ProfileOrganizations } from "./components/orgs";
 import { RecentActivity } from "./components/recent-activity";
@@ -44,9 +44,11 @@ export default function Home({
 			<div className="hidden w-screen h-px animate-glow md:block animate-fade-right bg-gradient-to-r from-zinc-300/0 via-zinc-300/50 to-zinc-300/0" />
 			<div className="my-16 text-center animate-fade-in">
 				<h2 className="text-lg text-zinc-500">
-					<UserText promise={promise} />
-					<ProfileOrganizations username={username} />
-					<RecentActivity username={username} />
+					<Suspense fallback={<p>Loading...</p>}>
+						<UserText promise={promise} />
+						<ProfileOrganizations username={username} />
+						<RecentActivity username={username} />
+					</Suspense>
 				</h2>
 			</div>
 		</div>
