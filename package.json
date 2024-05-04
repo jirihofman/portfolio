@@ -13,7 +13,7 @@
     "@primer/octicons-react": "^19.9.0",
     "@primer/react": "^36.15.0",
     "dotenv": "^16.4.5",
-    "eslint-config-next": "^14.2.2",
+    "eslint-config-next": "^14.2.3",
     "framer-motion": "^11.1.7",
     "lodash": "^4.17.21",
     "next": "^14.2.3",
