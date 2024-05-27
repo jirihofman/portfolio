@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@primer/octicons-react": "^19.9.0",
-    "@primer/react": "^36.18.0",
+    "@primer/react": "^36.19.0",
     "dotenv": "^16.4.5",
     "eslint-config-next": "^14.2.3",
     "framer-motion": "^11.1.9",
