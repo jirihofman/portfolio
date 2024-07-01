@@ -65,7 +65,13 @@ export const getUserOrganizations = async (username) => {
 		}),
 	});
 	console.timeEnd('getUserOrganizations');
-	return res.json();
+	const orgs = await res.json();
+
+	if (!res.ok) {
+		console.error('GitHub graphql returned an error.', res.status, res.statusText, orgs);
+		return { data: { user: { organizations: { nodes: [] } } } };
+	}
+	return orgs;
 };
 
 export const getVercelProjects = async () => {
@@ -149,6 +155,11 @@ export const getRecentUserActivity = cache(async (username) => {
 		headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
 	});
 	const response = await res.json();
+
+	if (!res.ok) {
+		console.error('GitHub API /users returned an error.', res.status, res.statusText, response);
+		return [];
+	}
 	console.timeEnd('getRecentUserActivity');
 	return response;
 }, HOURS_12);
