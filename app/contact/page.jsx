@@ -45,6 +45,15 @@ export default async function Contacts({
 					handle: s.url.split("/").pop(),
 				});
 				break;
+			case "twitter":
+				contacts.push({
+					icon: <LinkIcon size={20} />,
+					href: s.url,
+					label: s.provider,
+					// Extract last aprt of the url.
+					handle: s.url.split("/").pop(),
+				});
+				break;
 			default:
 				contacts.push({
 					icon: <PersonIcon size={20} />,
