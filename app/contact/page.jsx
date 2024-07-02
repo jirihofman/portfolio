@@ -18,16 +18,16 @@ export default async function Contacts({
 	const socialsData = getSocialAccounts(username);
 	const [user, githubSocials] = await Promise.all([userData, socialsData]);
 	const email = user.email || data.email;
-	const contancts = [];
+	const contacts = [];
 	if (email) {
-		contancts.push({
+		contacts.push({
 			icon: <MailIcon size={20} />,
 			href: "mailto:" + email,
 			label: "Email",
 			handle: email,
 		});
 	}
-	contancts.push({
+	contacts.push({
 		icon: <MarkGithubIcon size={20} />,
 		href: "https://github.com/" + username,
 		label: "Github",
@@ -37,7 +37,16 @@ export default async function Contacts({
 	githubSocials.forEach((s) => {
 		switch (s.provider) {
 			case "linkedin":
-				contancts.push({
+				contacts.push({
+					icon: <LinkIcon size={20} />,
+					href: s.url,
+					label: s.provider,
+					// Extract last aprt of the url.
+					handle: s.url.split("/").pop(),
+				});
+				break;
+			case "twitter":
+				contacts.push({
 					icon: <LinkIcon size={20} />,
 					href: s.url,
 					label: s.provider,
@@ -46,7 +55,7 @@ export default async function Contacts({
 				});
 				break;
 			default:
-				contancts.push({
+				contacts.push({
 					icon: <PersonIcon size={20} />,
 					href: s.url,
 					// Extract domain from url.
@@ -63,7 +72,7 @@ export default async function Contacts({
 			<Navigation />
 			<div className="container flex items-center justify-center min-h-screen px-4 mx-auto">
 				<div className="grid w-full grid-cols-1 gap-8 mx-auto mt-32 sm:mt-0 sm:grid-cols-3 lg:gap-16">
-					{contancts.map((s) => {
+					{contacts.map((s) => {
 						// My email sucks, so I'm trying to make it fit in the grid.
 						const emailTransform = s.label === 'Email' ? 'sm:rotate-45 md:rotate-0 lg:rotate-45 xl:rotate-0' : '';
 
