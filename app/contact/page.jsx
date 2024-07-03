@@ -38,7 +38,7 @@ export default async function Contacts({
 
 	githubSocials.forEach((s) => {
 		switch (s.provider) {
-			case "linkedin":
+			case "Linkedin":
 				contacts.push({
 					icon: <FaLinkedin  size={20} />,
 					href: s.url,
@@ -47,7 +47,7 @@ export default async function Contacts({
 					handle: s.url.split("/").pop(),
 				});
 				break;
-			case "twitter":
+			case "Twitter":
 				contacts.push({
 					icon: <FaXTwitter size={20} />,
 					href: s.url,
