@@ -1,5 +1,7 @@
 import { MarkGithubIcon, MailIcon, PersonIcon, LinkIcon } from '@primer/octicons-react';
 import Link from "next/link";
+import { FaLinkedin } from "react-icons/fa";
+import { FaXTwitter } from "react-icons/fa6";
 import { Navigation } from "../components/nav";
 import { Card } from "../components/card";
 import data from "../../data.json";
@@ -38,7 +40,7 @@ export default async function Contacts({
 		switch (s.provider) {
 			case "linkedin":
 				contacts.push({
-					icon: <LinkIcon size={20} />,
+					icon: <FaLinkedin  size={20} />,
 					href: s.url,
 					label: s.provider,
 					// Extract last aprt of the url.
@@ -47,7 +49,7 @@ export default async function Contacts({
 				break;
 			case "twitter":
 				contacts.push({
-					icon: <LinkIcon size={20} />,
+					icon: <FaXTwitter size={20} />,
 					href: s.url,
 					label: s.provider,
 					// Extract last aprt of the url.
