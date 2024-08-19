@@ -14,7 +14,7 @@
     "@primer/react": "^36.26.0",
     "dotenv": "^16.4.5",
     "eslint-config-next": "^14.2.4",
-    "framer-motion": "^11.3.21",
+    "framer-motion": "^11.3.28",
     "lodash": "^4.17.21",
     "next": "^14.2.5",
     "react": "^18.3.1",
