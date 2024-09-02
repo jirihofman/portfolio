@@ -25,7 +25,7 @@
   "devDependencies": {
     "@opentelemetry/api": "^1.9.0",
     "@tailwindcss/line-clamp": "^0.4.4",
-    "@tailwindcss/typography": "^0.5.14",
+    "@tailwindcss/typography": "^0.5.15",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.44",
     "postcss-nesting": "^13.0.0",
