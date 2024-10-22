@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import { GoSearch } from 'react-icons/go';
-import { Spinner } from "@primer/react";
 
 const UserSearch = ({ user }) => {
 
@@ -51,7 +50,7 @@ const UserSearch = ({ user }) => {
                         }}
                     />
                     <span className="absolute mr-2 w-10 cursor-pointer" onClick={handleSearch}>
-                        {loading ? <Spinner /> : <GoSearch size={32} />}
+                        {loading ? '...' : <GoSearch size={32} />}
                     </span>
                 </div>
             </div>
