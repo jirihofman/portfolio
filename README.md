@@ -9,7 +9,7 @@ It is supposed to be used as a **template for other GitHub users' portfolios**. 
 ## Tech stack
 - **Framework**: [Next.js](https://nextjs.org/)
 - **Deployment**: [Vercel](https://vercel.com)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com), [Primer](https://primer.style/)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com)
 ## Running Locally
 
 
