@@ -1,4 +1,4 @@
-import { ArrowLeftIcon } from "@primer/octicons-react";
+import { GoArrowLeft } from 'react-icons/go';
 import Link from "next/link";
 import React from "react";
 import UserSearch from "../components/search-input";
@@ -25,7 +25,7 @@ export default async function Home(props) {
 					href={"/"}
 					className="duration-200 text-zinc-300 hover:text-zinc-100"
 				>
-					<ArrowLeftIcon className="w-6 h-6" />
+					<GoArrowLeft className="w-6 h-6" />
 				</Link>
 			</div>
 			<nav className="my-16 animate-fade-in" />

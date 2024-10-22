@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useState } from "react";
-import { SearchIcon } from "@primer/octicons-react";
-import { Spinner } from "@primer/react";
+import { GoSearch } from 'react-icons/go';
 
 const UserSearch = ({ user }) => {
 
@@ -51,7 +50,7 @@ const UserSearch = ({ user }) => {
                         }}
                     />
                     <span className="absolute mr-2 w-10 cursor-pointer" onClick={handleSearch}>
-                        {loading ? <Spinner /> : <SearchIcon size={32} />}
+                        {loading ? '...' : <GoSearch size={32} />}
                     </span>
                 </div>
             </div>
@@ -69,7 +68,7 @@ const UserSearch = ({ user }) => {
                                 {userExists !== -1 && newUsername && newUsername !== user ?
                                     <span className="text-red-500">User <strong>{newUsername}</strong> not found.</span> :
                                     <span className="inline-flex items-baseline text-zinc-500">
-                                        <span className="pe-2">Click</span><SearchIcon size={16} />
+                                        <span className="pe-2">Click</span><GoSearch size={16} />
                                         <span className="ps-2">or pres <kbd>Enter</kbd> to search GitHub.</span>
                                     </span>}
                             </span>
