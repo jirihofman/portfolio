@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { EyeClosedIcon, EyeIcon, MarkGithubIcon, StarIcon, DependabotIcon } from '@primer/octicons-react';
+import { FaGithub } from "react-icons/fa";
+import { GoDependabot, GoEye, GoEyeClosed, GoStar } from 'react-icons/go';
 import { VercelInfo } from "../components/vercel-info";
 import { getTrafficPageViews, getDependabotAlerts } from "../data";
 
@@ -8,13 +9,13 @@ export const Article = async ({ project }) => {
     const appLink = project.homepage ? project.homepage : project.html_url;
 
     /** Repository visitors info. */
-    let views = <span title="Can't get traffic data for someone else's repo."><EyeClosedIcon className="w-4 h-4" /></span>;
-    let alerts = <span title="Can't get alerts data for someone else's repo."><DependabotIcon className="w-4 h-4" /></span>;
+    let views = <span title="Can't get traffic data for someone else's repo." className="flex items-center gap-1"><GoEyeClosed className="w-4 h-4" /></span>;
+    let alerts = <span title="Can't get alerts data for someone else's repo."><GoDependabot className="w-4 h-4" /></span>;
     const isGitHubUser = process.env.GITHUB_USERNAME === project.owner.login;
     if (isGitHubUser) {
         const [{ todayUniques, sumUniques } = {}, openAlertsBySeverity] = await Promise.all([getTrafficPageViews(project.owner.login, project.name), getDependabotAlerts(project.owner.login, project.name)]);
-        views = <span title="Unique repository visitors: Last 14 days / Today.">
-            <EyeIcon className="w-4 h-4" />{" "}
+        views = <span title="Unique repository visitors: Last 14 days / Today." className="flex items-center gap-1">
+            <GoEye className="w-4 h-4" />{" "}
             {Intl.NumberFormat("en-US", { notation: "compact" }).format(sumUniques)}/{Intl.NumberFormat("en-US", { notation: "compact" }).format(todayUniques)}
         </span>;
 
@@ -22,8 +23,8 @@ export const Article = async ({ project }) => {
         const alertCountTotal = (openAlertsBySeverity.critical || 0) + (openAlertsBySeverity.high || 0) + (openAlertsBySeverity.medium || 0) + (openAlertsBySeverity.low || 0);
         const alertTitle = alertCountTotal > 0 ? `Open Dependabot alerts: ` + (JSON.stringify(openAlertsBySeverity)) : "No open Dependabot alerts.";
         
-        alerts = <span title={alertTitle}>
-            <DependabotIcon className="w-4 h-4 danger" fill={alertColor} />{" "}            
+        alerts = <span title={alertTitle} className="flex items-center gap-1">
+            <GoDependabot className="w-4 h-4 danger" fill={alertColor} />{" "}            
             {Intl.NumberFormat("en-US", { notation: "compact" }).format(alertCountTotal)}
         </span>;
     }
@@ -41,8 +42,9 @@ export const Article = async ({ project }) => {
                     {/* <Eye className="w-4 h-4" />{" "}
                     {Intl.NumberFormat("en-US", { notation: "compact" }).format(project.watchers_count)} */}
                     {project.vercel && <VercelInfo info={{ ...project.vercel, owner: project.owner }} />}
-                    <span title="Total stars.">
-                        <StarIcon className="w-4 h-4" />{" "}
+                    <span title="Total stars." className="flex items-center gap-1">
+                        {/* <StarIcon className="w-4 h-4" />{" "} */}
+                        <GoStar className="w-4 h-4" />{" "}
                         {Intl.NumberFormat("en-US", { notation: "compact" }).format(project.stargazers_count)}
                     </span>
                 </span>
@@ -59,7 +61,7 @@ export const Article = async ({ project }) => {
                 {project.description}
             </p>
             <div className="flex justify-between gap-2 items-center float-left mt-2 border-t-2 border-gray-700 border-opacity-50">
-                <span className="text-zinc-500 text-xs">
+                <span className="text-zinc-500 text-xs flex items-center gap-1">
                     {views}
                     {" "}
                     {alerts}
@@ -67,7 +69,7 @@ export const Article = async ({ project }) => {
             </div>
             <div className="flex justify-between gap-2 items-center float-right mt-2 border-t-2 border-gray-700 border-opacity-50">
                 <span className="text-zinc-500 text-xs align-middle flex items-center gap-1" title="GitHub repository link.">
-                    <MarkGithubIcon className="w-4 h-4" /><Link href={project.html_url} className="hover:text-blue-800">{project.name}</Link>
+                    <FaGithub className="w-4 h-4" /><Link href={project.html_url} className="hover:text-blue-800">{project.name}</Link>
                 </span>
             </div>
         </article>

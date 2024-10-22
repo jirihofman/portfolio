@@ -1,4 +1,5 @@
-import { MarkGithubIcon, MailIcon, PersonIcon, LinkIcon } from '@primer/octicons-react';
+import { FaGithub } from "react-icons/fa";
+import { GoMail, GoPerson } from 'react-icons/go';
 import Link from "next/link";
 import { FaLinkedin } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
@@ -26,14 +27,14 @@ export default async function Contacts(props) {
     const contacts = [];
     if (email) {
 		contacts.push({
-			icon: <MailIcon size={20} />,
+			icon: <GoMail size={20} />,
 			href: "mailto:" + email,
 			label: "Email",
 			handle: email,
 		});
 	}
     contacts.push({
-		icon: <MarkGithubIcon size={20} />,
+		icon: <FaGithub size={20} />,
 		href: "https://github.com/" + username,
 		label: "Github",
 		handle: username,
@@ -43,7 +44,7 @@ export default async function Contacts(props) {
 		switch (s.provider) {
 			case "linkedin":
 				contacts.push({
-					icon: <FaLinkedin  size={20} />,
+					icon: <FaLinkedin size={20} />,
 					href: s.url,
 					label: s.provider,
 					// Extract last aprt of the url.
@@ -61,7 +62,7 @@ export default async function Contacts(props) {
 				break;
 			default:
 				contacts.push({
-					icon: <PersonIcon size={20} />,
+					icon: <GoPerson size={20} />,
 					href: s.url,
 					// Extract domain from url.
 					label: s.url.split("/")[2],

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeftIcon } from "@primer/octicons-react";
+import { GoArrowLeft } from 'react-icons/go';
 import Link from "next/link";
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from "react";
@@ -50,7 +50,7 @@ export const Navigation = () => {
 						href={"/" + (customUsername ? `?customUsername=${customUsername}` : '')}
 						className="duration-200 text-zinc-300 hover:text-zinc-100"
 					>
-						<ArrowLeftIcon className="w-6 h-6" />
+						<GoArrowLeft className="w-6 h-6" />
 					</Link>
 				</div>
 			</div>
