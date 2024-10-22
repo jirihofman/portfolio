@@ -22,7 +22,7 @@ export async function getRepos(username) {
     console.time('getRepos');
     const res = await fetch('https://api.github.com/users/' + username + '/repos', {
         headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-        next: { revalidate: MINUTES_5 }
+        next: { revalidate: HOURS_1 }
     });
     if (!res.ok) {
         console.error('GitHub API returned an error.', res.status, res.statusText);
@@ -37,7 +37,7 @@ export async function getSocialAccounts(username) {
     console.time('getSocialAccounts');
     const res = await fetch('https://api.github.com/users/' + username + '/social_accounts', {
         headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-        next: { MINUTES_5 }
+        next: { revalidate: HOURS_12 }
     });
     console.timeEnd('getSocialAccounts');
     return res.json();
@@ -91,6 +91,7 @@ export const getVercelProjects = async () => {
     console.time('getVercelProjects');
     const res = await fetch('https://api.vercel.com/v9/projects', {
         headers: { Authorization: `Bearer ${process.env.VC_TOKEN}` },
+        next: { revalidate: HOURS_12 }
     });
     console.timeEnd('getVercelProjects');
     // eg. expired token.
@@ -149,7 +150,7 @@ export const getRepositoryPackageJson = cache(async (username, reponame) => {
     const response = await res.json();
     try {
         const packageJson = JSON.parse(response.data.repository.object.text);
-        return packageJson;		
+        return packageJson;
     } catch (error) {
         console.error('Error parsing package.json', error);
         return {};
@@ -177,7 +178,7 @@ export const getRecentUserActivity = async (username) => {
             response.push(...nextResponse);
             nextLink = nextRes.headers.get('link').split(',').find((link) => link.includes('rel="next"'));
             page++;
-        } ;
+        };
     }
 
     if (!res.ok) {
@@ -248,11 +249,11 @@ export async function checkAppJsxExistence(repoOwner, repoName) {
         const [ isPagesRes, isAppLayoutRes ] = await Promise.all([
             fetch(urlPagesApp, {
                 headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-                next: { HOURS_12 }
+                next: { revalidate: HOURS_12 }
             }),
             fetch(urlAppLayout, {
                 headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-                next: { HOURS_12 }
+                next: { revalidate: HOURS_12 }
             }),
         ]);
 
