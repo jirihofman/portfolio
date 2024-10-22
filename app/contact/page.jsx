@@ -10,18 +10,21 @@ import { getUser, getSocialAccounts } from "../data";
 // TODO: make it edge once Turbopack supports it.
 export const runtime = 'nodejs';
 
-export default async function Contacts({
-	searchParams: { customUsername },
-}) {
+export default async function Contacts(props) {
+    const searchParams = await props.searchParams;
 
-	const username = customUsername || process.env.GITHUB_USERNAME || data.githubUsername;
-	// Get both user and socials in parallel.
-	const userData = getUser(username);
-	const socialsData = getSocialAccounts(username);
-	const [user, githubSocials] = await Promise.all([userData, socialsData]);
-	const email = user.email || data.email;
-	const contacts = [];
-	if (email) {
+    const {
+        customUsername
+    } = searchParams;
+
+    const username = customUsername || process.env.GITHUB_USERNAME || data.githubUsername;
+    // Get both user and socials in parallel.
+    const userData = getUser(username);
+    const socialsData = getSocialAccounts(username);
+    const [user, githubSocials] = await Promise.all([userData, socialsData]);
+    const email = user.email || data.email;
+    const contacts = [];
+    if (email) {
 		contacts.push({
 			icon: <MailIcon size={20} />,
 			href: "mailto:" + email,
@@ -29,14 +32,14 @@ export default async function Contacts({
 			handle: email,
 		});
 	}
-	contacts.push({
+    contacts.push({
 		icon: <MarkGithubIcon size={20} />,
 		href: "https://github.com/" + username,
 		label: "Github",
 		handle: username,
 	});
 
-	githubSocials.forEach((s) => {
+    githubSocials.forEach((s) => {
 		switch (s.provider) {
 			case "linkedin":
 				contacts.push({
@@ -69,7 +72,7 @@ export default async function Contacts({
 		}
 	});
 
-	return (
+    return (
 		<div className=" bg-gradient-to-tl from-zinc-900/0 via-zinc-900 to-zinc-900/0">
 			<Navigation />
 			<div className="container flex items-center justify-center min-h-screen px-4 mx-auto">

@@ -6,13 +6,16 @@ import UserSearch from "../components/search-input";
 // TODO: make it edge once Turbopack supports it.
 export const runtime = 'nodejs';
 
-export default function Home({
-	searchParams: { customUsername },
-}) {
+export default async function Home(props) {
+    const searchParams = await props.searchParams;
 
-	const username = customUsername || process.env.GITHUB_USERNAME;
+    const {
+        customUsername
+    } = searchParams;
 
-	return (
+    const username = customUsername || process.env.GITHUB_USERNAME;
+
+    return (
 		<div className="flex flex-col items-center  w-screen h-screen overflow-hidden bg-gradient-to-tl from-black via-zinc-600/20 to-black">
 			<div className="container flex flex-row-reverse items-center justify-between p-6 mx-auto">
 				<div className="flex justify-between gap-8 text-base">

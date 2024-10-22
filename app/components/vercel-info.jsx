@@ -22,7 +22,15 @@ export const VercelInfo = async ({ info }) => {
 
 	let isUsingTurbopack = pJson?.scripts?.dev?.includes('--turbo') || false;
 	const turboIcon = isUsingTurbopack
-		? <Popover button={<Image height={16} width={16} style={{ fontSize: 'medium' }} src='https://turbo.build/images/docs/pack/turbo-benchmark-icon-dark.svg' />} content={<span>Using Turbopack</span>} />
+		? <Popover button={
+			<Image 
+				height={16}
+				width={16}
+				style={{ fontSize: 'medium' }}
+				src='https://turbo.build/images/docs/pack/turbo-benchmark-icon-dark.svg'
+				alt='Turbo icon'
+			/>
+		} content={<span>Using Turbopack</span>} />
 		: null;
 
 	// Icons copied from https://vercel.com/design/brands

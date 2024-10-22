@@ -7,10 +7,13 @@ import chunk from 'lodash/chunk';
 import data from "../../data.json";
 import { getRepos, getPinnedRepos, getVercelProjects } from "../data";
 
-export default async function ProjectsPage({
-    searchParams: { customUsername },
-}) {
-    
+export default async function ProjectsPage(props) {
+    const searchParams = await props.searchParams;
+
+    const {
+        customUsername
+    } = searchParams;
+
     const username = customUsername || process.env.GITHUB_USERNAME || data.githubUsername;
     const [
         repositories,

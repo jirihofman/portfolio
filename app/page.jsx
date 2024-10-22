@@ -11,9 +11,10 @@ const navigation = [
 	{ name: "Contact", href: "/contact" },
 ];
 
-export default function Home({ searchParams }) {
+export default async function Home(props) {
+    const searchParams = await props.searchParams;
 
-	return (
+    return (
 		<Suspense fallback={<p className="text-lg text-zinc-500">Loading...</p>}>
 			<LandingComponent searchParams={searchParams} />
 		</Suspense>

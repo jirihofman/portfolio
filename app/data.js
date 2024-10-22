@@ -156,11 +156,12 @@ export const getRepositoryPackageJson = cache(async (username, reponame) => {
     }
 }, HOURS_12);
 
-export const getRecentUserActivity = cache(async (username) => {
+export const getRecentUserActivity = async (username) => {
     console.log('Fetching recent activity for', username);
     console.time('getRecentUserActivity');
     const res = await fetch('https://api.github.com/users/' + username + '/events?per_page=100', {
         headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+        next: { revalidate: MINUTES_5 }
     });
     const response = await res.json();
     // Check pagination
@@ -170,6 +171,7 @@ export const getRecentUserActivity = cache(async (username) => {
         while (nextLink) {
             const nextRes = await fetch('https://api.github.com/users/' + username + '/events?per_page=100&page=' + page, {
                 headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+                next: { revalidate: MINUTES_5 }
             });
             const nextResponse = await nextRes.json();
             response.push(...nextResponse);
@@ -184,7 +186,7 @@ export const getRecentUserActivity = cache(async (username) => {
     }
     console.timeEnd('getRecentUserActivity');
     return response;
-}, HOURS_12);
+};
 
 export const getTrafficPageViews = async (username, reponame) => {
     const res = await fetch('https://api.github.com/repos/' + username + '/' + reponame + '/traffic/views', {
@@ -203,9 +205,10 @@ export const getTrafficPageViews = async (username, reponame) => {
     return { sumUniques, todayUniques };
 };
 
-export const getDependabotAlerts = cache(async (username, reponame) => {
+export const getDependabotAlerts = async (username, reponame) => {
     const res = await fetch('https://api.github.com/repos/' + username + '/' + reponame + '/dependabot/alerts', {
         headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+        next: { revalidate: HOURS_12 }
     });
 
     const response = await res.json();
@@ -222,7 +225,7 @@ export const getDependabotAlerts = cache(async (username, reponame) => {
     }, {});
 
     return openAlertsBySeverity;
-}, HOURS_12);
+};
 
 /**
  * Determines if a repository is using Next.js App Router or legacy pages/_app.jsx. Or both.
