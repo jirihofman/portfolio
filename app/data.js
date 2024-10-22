@@ -1,4 +1,4 @@
-import { cache } from 'react';
+import { unstable_cache } from 'next/cache';
 
 const revalidate = 60;
 const MINUTES_5 = 60 * 5;
@@ -43,7 +43,7 @@ export async function getSocialAccounts(username) {
     return res.json();
 }
 
-export const getPinnedRepos = cache(async (username) => {
+export const getPinnedRepos = unstable_cache(async (username) => {
     console.log('Fetching pinned repos for', username);
     console.time('getPinnedRepos');
     const res = await fetch('https://api.github.com/graphql', {
@@ -59,7 +59,7 @@ export const getPinnedRepos = cache(async (username) => {
     console.timeEnd('getPinnedRepos');
     const names = pinned.data.user.pinnedItems.nodes.map((node) => node.name);
     return names;
-});
+}, ['getPinnedRepos'], { revalidate: HOURS_12 });
 
 export const getUserOrganizations = async (username) => {
     console.log('Fetching organizations for', username);
@@ -103,10 +103,11 @@ export const getVercelProjects = async () => {
 };
 
 /** Cache revalidated every 12 hours. */
-export const getNextjsLatestRelease = cache(async () => {
+export const getNextjsLatestRelease = unstable_cache(async () => {
     const res = await fetch('https://api.github.com/graphql', {
         method: 'POST',
         headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+        next: { revalidate: HOURS_12 },
         body: JSON.stringify({
             query: `{
                 repository(name: "next.js", owner: "vercel") {
@@ -129,9 +130,9 @@ export const getNextjsLatestRelease = cache(async () => {
         updatedAt: nextjsLatest.data.repository.latestRelease.updatedAt,
     }
     return result;
-}, HOURS_12);
+}, ['getNextjsLatestRelease'], { revalidate: HOURS_1 });
 
-export const getRepositoryPackageJson = cache(async (username, reponame) => {
+export const getRepositoryPackageJson = unstable_cache(async (username, reponame) => {
     const res = await fetch('https://api.github.com/graphql', {
         method: 'POST',
         headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
@@ -155,7 +156,7 @@ export const getRepositoryPackageJson = cache(async (username, reponame) => {
         console.error('Error parsing package.json', error);
         return {};
     }
-}, HOURS_12);
+}, ['getRepositoryPackageJson'], { revalidate: HOURS_1 });
 
 export const getRecentUserActivity = async (username) => {
     console.log('Fetching recent activity for', username);
@@ -230,12 +231,12 @@ export const getDependabotAlerts = async (username, reponame) => {
 
 /**
  * Determines if a repository is using Next.js App Router or legacy pages/_app.jsx. Or both.
+ * Using unstable_cache because fetch calls are not cached when failing. This is the case when eg _app.jsx is not found.
  * @param {*} repoOwner GitHub username
  * @param {string} repoName repository name
  * @returns Object with two booleans: isRouterPages and isRouterApp
  */
-export async function checkAppJsxExistence(repoOwner, repoName) {
-
+export const checkAppJsxExistence = unstable_cache(async (repoOwner, repoName) => {
     const urlPagesApp = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/pages/_app.jsx`;
     // TODO: Add more possible ways to check for App Router.
     const urlAppLayout = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/app/layout.jsx`;
@@ -249,11 +250,11 @@ export async function checkAppJsxExistence(repoOwner, repoName) {
         const [ isPagesRes, isAppLayoutRes ] = await Promise.all([
             fetch(urlPagesApp, {
                 headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-                next: { revalidate: HOURS_12 }
+                next: { revalidate: HOURS_1 }
             }),
             fetch(urlAppLayout, {
                 headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-                next: { revalidate: HOURS_12 }
+                next: { revalidate: HOURS_1 }
             }),
         ]);
 
@@ -269,4 +270,4 @@ export async function checkAppJsxExistence(repoOwner, repoName) {
     }
 
     return res;
-}
+}, ['checkAppJsxExistence'], { revalidate: HOURS_1 });
