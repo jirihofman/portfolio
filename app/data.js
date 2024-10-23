@@ -207,7 +207,7 @@ export const getTrafficPageViews = async (username, reponame) => {
     return { sumUniques, todayUniques };
 };
 
-export const getDependabotAlerts = async (username, reponame) => {
+export const getDependabotAlerts = unstable_cache(async (username, reponame) => {
     const res = await fetch('https://api.github.com/repos/' + username + '/' + reponame + '/dependabot/alerts', {
         headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
         next: { revalidate: HOURS_12 }
@@ -227,7 +227,7 @@ export const getDependabotAlerts = async (username, reponame) => {
     }, {});
 
     return openAlertsBySeverity;
-};
+}, ['getDependabotAlerts'], { revalidate: HOURS_12 });
 
 /**
  * Determines if a repository is using Next.js App Router or legacy pages/_app.jsx. Or both.
