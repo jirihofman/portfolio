@@ -61,7 +61,7 @@ export const getPinnedRepos = unstable_cache(async (username) => {
     return names;
 }, ['getPinnedRepos'], { revalidate: HOURS_12 });
 
-export const getUserOrganizations = async (username) => {
+export const getUserOrganizations = unstable_cache(async (username) => {
     console.log('Fetching organizations for', username);
     console.time('getUserOrganizations');
     const res = await fetch('https://api.github.com/graphql', {
@@ -80,7 +80,7 @@ export const getUserOrganizations = async (username) => {
         return { data: { user: { organizations: { nodes: [] } } } };
     }
     return orgs;
-};
+}, ['getUserOrganizations'], { revalidate: HOURS_12 });
 
 export const getVercelProjects = async () => {
     if (!process.env.VC_TOKEN) {

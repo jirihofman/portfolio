@@ -4,9 +4,7 @@ import { getUserOrganizations } from "../data";
 
 export const ProfileOrganizations = async ({ username }) => {
 
-	const t1 = new Date().getTime();
 	const organizations = (await getUserOrganizations(username)).data.user?.organizations.nodes;
-	const t2 = new Date().getTime();
 
 	return (
 		<p>I'm building stuff{
@@ -30,7 +28,6 @@ export const ProfileOrganizations = async ({ username }) => {
 				</span>
 			</> : '.'
 		}
-		[{organizations?.length} orgs in {t2 - t1}ms]
 		</p>
 	);
 };
