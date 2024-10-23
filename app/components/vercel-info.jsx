@@ -4,12 +4,14 @@ import Popover from './popover';
 
 export const VercelInfo = async ({ info }) => {
 
+	const t1 = new Date().getTime();
 	const nextjsLatestRelease = await getNextjsLatestRelease();
 	const pJson = await getRepositoryPackageJson(info.owner.login, info.name);
 	const { isRouterPages, isRouterApp } = await checkAppJsxExistence(info.owner.login, info.name);
 	const nextjsVersion = pJson?.dependencies?.next.replace('^', '').replace('~', '');
 	let labelNext = 'Next.js project';
 
+	const t2 = new Date().getTime();
 	if (isRouterPages && isRouterApp) {
 		labelNext = labelNext + ' using both Pages and App';
 	} else if (isRouterPages && !isRouterApp) {
@@ -56,6 +58,7 @@ export const VercelInfo = async ({ info }) => {
 			<span>{frameworkIcon}</span>
 			<span>{vercelIcon}</span>
 			<span>{turboIcon}</span>
+			<span>[{t2 - t1}ms]</span>
 		</span>
 	);
 };

@@ -8,6 +8,7 @@ export const Article = async ({ project }) => {
 
     const appLink = project.homepage ? project.homepage : project.html_url;
 
+    const t1 = new Date().getTime();
     /** Repository visitors info. */
     let views = <span title="Can't get traffic data for someone else's repo." className="flex items-center gap-1"><GoEyeClosed className="w-4 h-4" /></span>;
     let alerts = <span title="Can't get alerts data for someone else's repo."><GoDependabot className="w-4 h-4" /></span>;
@@ -22,17 +23,19 @@ export const Article = async ({ project }) => {
         const alertColor = openAlertsBySeverity.critical > 0 ? "red" : openAlertsBySeverity.high > 0 ? "orange" : openAlertsBySeverity.medium > 0 ? "yellow" : openAlertsBySeverity.low > 0 ? "blue" : "gray";
         const alertCountTotal = (openAlertsBySeverity.critical || 0) + (openAlertsBySeverity.high || 0) + (openAlertsBySeverity.medium || 0) + (openAlertsBySeverity.low || 0);
         const alertTitle = alertCountTotal > 0 ? `Open Dependabot alerts: ` + (JSON.stringify(openAlertsBySeverity)) : "No open Dependabot alerts.";
-        
+
         alerts = <span title={alertTitle} className="flex items-center gap-1">
             <GoDependabot className="w-4 h-4 danger" fill={alertColor} />{" "}            
             {Intl.NumberFormat("en-US", { notation: "compact" }).format(alertCountTotal)}
         </span>;
     }
+    const t2 = new Date().getTime();
 
     return (
         <article className="p-4 md:p-8">
             <div className="flex justify-between gap-2 items-center">
                 <span className="text-xs duration-1000 text-zinc-200 group-hover:text-white group-hover:border-zinc-200 drop-shadow-orange">
+            [article time: {t2 - t1}ms]
                     {/* <Image src={`https://raw.githubusercontent.com/jirihofman/${project.name}/${project.default_branch}/public/favicon.ico`} alt={project.name} width={24} height={24} placeholder="blur" /> */}
                     <time dateTime={new Date(project.created_at).toISOString()} title="Created">
                         {new Date(project.created_at).toISOString().substring(0, 10)}
