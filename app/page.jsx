@@ -15,9 +15,7 @@ export default async function Home(props) {
     const searchParams = await props.searchParams;
 
     return (
-		<Suspense fallback={<p className="text-lg text-zinc-500">Loading...</p>}>
-			<LandingComponent searchParams={searchParams} />
-		</Suspense>
+		<LandingComponent searchParams={searchParams} />
 	)
 }
 
@@ -78,16 +76,20 @@ const LandingComponent = async ({ searchParams: { customUsername } }) => {
 
 			<h1 className="flex items-center z-10 text-4xl hover:scale-110 text-transparent duration-1000 cursor-default text-edge-outline animate-title font-display sm:text-6xl md:text-9xl whitespace-nowrap bg-clip-text bg-white p-5">
 				{username}
-				<UserIcon promise={promise} />
+				<Suspense fallback={<p>Loading...</p>}>
+					<UserIcon promise={promise} />
+				</Suspense>
 			</h1>
 
 			<div className="hidden w-screen h-px animate-glow md:block animate-fade-right bg-gradient-to-r from-zinc-300/0 via-zinc-300/50 to-zinc-300/0" />
 			<div className="my-16 text-center animate-fade-in">
 				<h2 className="text-lg text-zinc-500">
-					<Suspense fallback={<p>Loading...</p>}>
-						<UserText promise={promise} />
-						<ProfileOrganizations username={username} />
-						<RecentActivity username={username} />
+					<Suspense fallback={<div className="w-full h-px min-h-28">Loading...</div>}>
+						<div className="w-full h-px min-h-28">
+							<UserText promise={promise} />
+							<ProfileOrganizations username={username} />
+							<RecentActivity username={username} />
+						</div>
 					</Suspense>
 				</h2>
 			</div>
