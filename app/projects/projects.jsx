@@ -1,3 +1,5 @@
+'use cache';
+
 import { Card } from "../components/card";
 // import { UserTimeline } from "../components/timeline";
 import { Article } from "./article";

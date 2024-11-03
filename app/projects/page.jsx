@@ -4,6 +4,8 @@ import data from "../../data.json";
 import ProjectsComponent from "./projects";
 
 export default async function ProjectsPage(props) {
+    'use cache';
+
     const searchParams = await props.searchParams;
 
     const {

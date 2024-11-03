@@ -1,3 +1,5 @@
+'use cache';
+
 import { FaGithub } from "react-icons/fa";
 import { GoMail, GoPerson } from 'react-icons/go';
 import Link from "next/link";
@@ -7,9 +9,6 @@ import { Navigation } from "../components/nav";
 import { Card } from "../components/card";
 import data from "../../data.json";
 import { getUser, getSocialAccounts } from "../data";
-
-// TODO: make it edge once Turbopack supports it.
-export const runtime = 'nodejs';
 
 export default async function Contacts(props) {
     const searchParams = await props.searchParams;

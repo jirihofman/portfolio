@@ -7,7 +7,8 @@ const nextConfig = {
         staleTimes: {
             dynamic: 300,
             static: 300
-        }
+        },
+        dynamicIO: true,
     },
     env: {
         /** GitHub username loaded in build time. */
