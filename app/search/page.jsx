@@ -3,9 +3,6 @@ import Link from "next/link";
 import React from "react";
 import UserSearch from "../components/search-input";
 
-// TODO: make it edge once Turbopack supports it.
-export const runtime = 'nodejs';
-
 export default async function Home(props) {
     const searchParams = await props.searchParams;
 
