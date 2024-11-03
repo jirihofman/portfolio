@@ -1,3 +1,5 @@
+'use cache';
+
 import { GoArrowLeft } from 'react-icons/go';
 import Link from "next/link";
 import React from "react";
