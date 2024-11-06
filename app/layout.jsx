@@ -2,6 +2,7 @@ import "../global.css";
 import { Inter } from "next/font/google";
 import LocalFont from "next/font/local";
 import data from "../data.json";
+import { Suspense } from "react";
 
 const username = process.env.GITHUB_USERNAME || data.githubUsername;
 const displayName = data.displayName || username;
@@ -53,7 +54,9 @@ export default function RootLayout({
 					process.env.NODE_ENV === "development" ? "debug-screens" : ''
 				}`}
 			>
-				{children}
+				<Suspense fallback={<div>Loading...</div>}>
+					{children}
+				</Suspense>
 			</body>
 		</html>
 	);
