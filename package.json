@@ -10,7 +10,7 @@
     "setup": "node ./lib/setup.mjs"
   },
   "dependencies": {
-    "dotenv": "^16.4.5",
+    "dotenv": "^16.4.7",
     "eslint-config-next": "15.1.0",
     "lodash": "^4.17.21",
     "next": "^15.1.0",
