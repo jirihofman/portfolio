@@ -65,7 +65,6 @@ export const getUserOrganizations = unstable_cache(async (username) => {
     console.log('Fetching organizations for', username);
     console.time('getUserOrganizations');
     const res = await fetch('https://api.github.com/graphql', {
-        next: { MINUTES_5 },
         method: 'POST',
         headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
         body: JSON.stringify({
