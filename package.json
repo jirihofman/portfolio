@@ -20,7 +20,7 @@
   },
   "devDependencies": {
     "@tailwindcss/line-clamp": "^0.4.4",
-    "@tailwindcss/typography": "^0.5.15",
+    "@tailwindcss/typography": "^0.5.16",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.5.1",
     "postcss-nesting": "^13.0.1",
