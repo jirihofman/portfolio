@@ -57,9 +57,9 @@ export const Article = async ({ project }) => {
                     </span>
                 </h2>
             </Link>
-            <p className="z-20 mt-4 text-sm duration-1000 text-zinc-400 group-hover:text-zinc-200">
+            <div className="z-20 mt-4 text-sm duration-1000 text-zinc-400 group-hover:text-zinc-200">
                 {project.description}
-            </p>
+            </div>
             <div className="flex justify-between gap-2 items-center float-left mt-2 border-t-2 border-gray-700 border-opacity-50">
                 <span className="text-zinc-500 text-xs flex items-center gap-1">
                     {views}

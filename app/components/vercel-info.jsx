@@ -1,6 +1,8 @@
 import Image from 'next/image';
 import { getNextjsLatestRelease, getRepositoryPackageJson, checkAppJsxExistence } from '../data';
 import Popover from './popover';
+import { RiTailwindCssFill } from "react-icons/ri";
+import { SiReactbootstrap } from 'react-icons/si';
 
 export const VercelInfo = async ({ info }) => {
 
@@ -51,11 +53,34 @@ export const VercelInfo = async ({ info }) => {
 		: null;
 
 	return (
-		<span className="text-zinc-500 text-xs flex items-center gap-1">
+		<span className="text-zinc-500 text-xs flex items-center gap-1 me-2">
 			<span>{upgradeIcon}</span>
 			<span>{frameworkIcon}</span>
 			<span>{vercelIcon}</span>
 			<span>{turboIcon}</span>
+			<span>
+				{getUILibrary(pJson).map((uiLib, index) => (
+					<Popover key={index} button={uiLib.icon} content={uiLib.text} />
+				)) || null}
+			</span>
 		</span>
 	);
 };
+
+// Note: Doesn't account for any directly imported UI libraries, only those that are listed in package.json.
+function getUILibrary(pJson) {
+
+	const uiLibIcons = [];
+
+	if (pJson?.devDependencies?.tailwindcss) {
+		uiLibIcons.push({icon: <RiTailwindCssFill />, text: 'Tailwind CSS'});
+	}
+	if (pJson?.dependencies['react-bootstrap']) {
+		uiLibIcons.push({icon: <SiReactbootstrap color='' />, text: 'React Bootstrap'});
+	}
+	if (pJson?.dependencies['@primer/react']) {
+		uiLibIcons.push({icon: <span className="text-2xl">🛠</span>, text: 'Primer'});
+	}
+
+	return uiLibIcons;
+}

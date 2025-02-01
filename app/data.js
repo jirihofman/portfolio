@@ -1,3 +1,4 @@
+// Note: This API will be replaced by use cache when it reaches stability.
 import { unstable_cache } from 'next/cache';
 
 const revalidate = 60;
@@ -152,8 +153,8 @@ export const getRepositoryPackageJson = unstable_cache(async (username, reponame
         const packageJson = JSON.parse(response.data.repository.object.text);
         return packageJson;
     } catch (error) {
-        console.error('Error parsing package.json', error);
-        return {};
+        console.error('Error parsing package.json', username, reponame, error);
+        return null;
     }
 }, ['getRepositoryPackageJson'], { revalidate: HOURS_1 });
 
