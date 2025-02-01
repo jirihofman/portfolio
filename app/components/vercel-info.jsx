@@ -3,6 +3,7 @@ import { getNextjsLatestRelease, getRepositoryPackageJson, checkAppJsxExistence 
 import Popover from './popover';
 import { RiTailwindCssFill } from "react-icons/ri";
 import { SiReactbootstrap } from 'react-icons/si';
+import { MdUpgrade } from "react-icons/md";
 
 export const VercelInfo = async ({ info }) => {
 
@@ -38,7 +39,7 @@ export const VercelInfo = async ({ info }) => {
 	// Icons copied from https://vercel.com/design/brands
 
 	const upgradeIcon = info.framework === 'nextjs' && nextjsVersion && nextjsVersion < nextjsLatestRelease.tagName
-		? <Popover button={<span style={{ fontSize: 'medium' }}>⏫</span>} content={<span><p><strong>Upgrade available</strong></p>Next.js: {nextjsVersion} ➡️ {nextjsLatestRelease.tagName}</span>} />
+		? <Popover button={<MdUpgrade color='white' size={'20'} className='-mb-1' />} content={<span><p><strong>Upgrade available</strong></p>Next.js: {nextjsVersion} ➡️ {nextjsLatestRelease.tagName}</span>} />
 		: null;
 
 	const vercelIcon = <Popover button={<svg aria-label="Vercel logomark" height="16" role="img" style={{ width: 'auto', overflow: 'visible' }} viewBox="0 0 74 64">
