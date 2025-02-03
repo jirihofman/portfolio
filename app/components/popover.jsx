@@ -15,7 +15,7 @@ const Popover = ({ button, content }) => {
 	return (
 		<div className="relative">
 			<button
-				// className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+				// className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-sm"
 				className="items-center"
 				onMouseEnter={handleMouseEnter}
 				onMouseLeave={handleMouseLeave}

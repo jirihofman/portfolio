@@ -33,7 +33,7 @@ export const Article = async ({ project }) => {
         <article className="p-4 md:p-8">
             <div className="flex justify-between gap-2 items-center">
                 <span className="text-xs duration-1000 text-zinc-200 group-hover:text-white group-hover:border-zinc-200 drop-shadow-orange">
-                    {/* <Image src={`https://raw.githubusercontent.com/jirihofman/${project.name}/${project.default_branch}/public/favicon.ico`} alt={project.name} width={24} height={24} placeholder="blur" /> */}
+                    {/* <Image src={`https://raw.githubusercontent.com/jirihofman/${project.name}/${project.default_branch}/public/favicon.ico`} alt={project.name} width={24} height={24} placeholder="blur-sm" /> */}
                     <time dateTime={new Date(project.created_at).toISOString()} title="Created">
                         {new Date(project.created_at).toISOString().substring(0, 10)}
                     </time>
@@ -52,7 +52,7 @@ export const Article = async ({ project }) => {
             
             <Link href={appLink}>
                 <h2 className="z-20 text-xl font-medium duration-1000 lg:text-3xl text-zinc-200 group-hover:text-white font-display cursor-pointer" title={`Click to view the ${project.homepage ? 'app' : 'repo'}.`}>
-                    <span className="bg-gradient-to-r from-purple-400 to-blue-500 hover:from-pink-500 hover:to-yellow-500 text-transparent bg-clip-text">
+                    <span className="bg-linear-to-r from-purple-400 to-blue-500 hover:from-pink-500 hover:to-yellow-500 text-transparent bg-clip-text">
                         {project.name}
                     </span>
                 </h2>
