@@ -59,7 +59,7 @@ const UserSearch = ({ user }) => {
                 <>
                     {
                         userExists > 1 ?
-                            <span className="bg-gradient-to-r from-purple-400 to-blue-500 hover:from-pink-500 hover:to-yellow-500 text-transparent bg-clip-text px-6">
+                            <span className="bg-linear-to-r from-purple-400 to-blue-500 hover:from-pink-500 hover:to-yellow-500 text-transparent bg-clip-text px-6">
                                 <a href={`/?customUsername=${username}`}>
                                     Preview user: <span className="font-bold">{username}</span>
                                 </a>
