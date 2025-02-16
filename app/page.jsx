@@ -5,6 +5,7 @@ import data from "../data.json";
 import { ProfileOrganizations } from "./components/orgs";
 import { RecentActivity } from "./components/recent-activity";
 import { getUser } from "./data";
+import { OpenAIStatsWidget } from "./components/openai-stats-widget";
 
 const navigation = [
 	{ name: "Projects", href: "/projects" },
@@ -57,7 +58,7 @@ const LandingComponent = async ({ searchParams: { customUsername } }) => {
 	const promise = getUser(username);
 
 	return (
-		<div className="flex flex-col items-center justify-center w-screen h-screen overflow-hidden bg-linear-to-tl from-black via-zinc-600/20 to-black">
+		<div className="flex flex-col items-center justify-center w-screen min-h-screen overflow-y-auto bg-linear-to-tl from-black via-zinc-600/20 to-black">
 			<nav className="my-16 animate-fade-in">
 				<ul className="flex items-center justify-center gap-4">
 					{navigation.map((item) => (
@@ -91,6 +92,17 @@ const LandingComponent = async ({ searchParams: { customUsername } }) => {
 							<RecentActivity username={username} />
 						</div>
 					</Suspense>
+				</h2>
+			</div>
+
+			<div className="hidden w-screen h-px animate-glow md:block animate-fade-right bg-linear-to-r from-zinc-300/0 via-zinc-300/50 to-zinc-300/0" />
+			<div className="my-16 text-center animate-fade-in">
+				<h2 className="text-lg text-zinc-500">
+					{process.env.OPENAI_API_KEY && (
+						<Suspense fallback={<div className="w-full h-px min-h-28">Loading...</div>}>
+							<OpenAIStatsWidget />
+						</Suspense>
+					)}
 				</h2>
 			</div>
 		</div>
