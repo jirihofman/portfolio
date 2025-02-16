@@ -5,11 +5,16 @@ import data from "../data.json";
 import { ProfileOrganizations } from "./components/orgs";
 import { RecentActivity } from "./components/recent-activity";
 import { getUser } from "./data";
+import { OpenAIStatsWidget } from "./components/openai-stats-widget";
 
 const navigation = [
 	{ name: "Projects", href: "/projects" },
 	{ name: "Contact", href: "/contact" },
 ];
+
+if (process.env.OPENAI_API_KEY) {
+	navigation.push({ name: "OpenAI Stats", href: "/openai-stats" });
+}
 
 export default async function Home(props) {
     const searchParams = await props.searchParams;
@@ -91,6 +96,17 @@ const LandingComponent = async ({ searchParams: { customUsername } }) => {
 							<RecentActivity username={username} />
 						</div>
 					</Suspense>
+				</h2>
+			</div>
+
+			<div className="hidden w-screen h-px animate-glow md:block animate-fade-right bg-linear-to-r from-zinc-300/0 via-zinc-300/50 to-zinc-300/0" />
+			<div className="my-16 text-center animate-fade-in">
+				<h2 className="text-lg text-zinc-500">
+					{process.env.OPENAI_API_KEY && (
+						<Suspense fallback={<div className="w-full h-px min-h-28">Loading...</div>}>
+							<OpenAIStatsWidget />
+						</Suspense>
+					)}
 				</h2>
 			</div>
 		</div>
