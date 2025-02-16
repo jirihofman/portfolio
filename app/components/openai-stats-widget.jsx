@@ -1,4 +1,11 @@
-import { FaRegQuestionCircle, FaAdjust, FaRegPaperPlane } from 'react-icons/fa';
+import { PiOpenAiLogo } from "react-icons/pi";
+
+const StatItem = ({ value, label }) => (
+	<div className="flex flex-col items-center sm:items-start">
+		<p className="text-sm font-bold mr-1">{value}</p>
+		<p className="text-xs text-zinc-400">{label}</p>
+	</div>
+);
 
 export async function OpenAIStatsWidget() {
 	const apiKey = process.env.OPENAI_API_KEY;
@@ -13,9 +20,6 @@ export async function OpenAIStatsWidget() {
 			revalidate: 86400
 		}
 	});
-
-	// Sleep 2 sec
-	await new Promise(resolve => setTimeout(resolve, 2000));
 
 	const allData = await response.json();
 
@@ -36,20 +40,17 @@ export async function OpenAIStatsWidget() {
 		total_generated_tokens: 0,
 	});
 
-	return (
-		<div className="bg-gray-800 text-white shadow rounded-lg p-2 flex items-center justify-between">
-			<div className="flex items-center">
-				<p className="text-sm font-bold mr-1">{stats.total_requests}</p>
-				<p className="text-xs text-gray-400">Requests</p>
+	return (<div className="bg-zinc-900 text-zinc-100 shadow rounded-lg p-4 w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl">
+		<div className="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0 sm:space-x-4">
+			<div className="flex items-center justify-center sm:justify-start w-full sm:w-auto">
+				<PiOpenAiLogo className="h-5 w-5 mr-2" />
+				<span className="text-sm font-medium">OpenAI Usage</span>
 			</div>
-			<div className="flex items-center">
-				<p className="text-sm font-bold mr-1">{stats.total_context_tokens.toLocaleString()}</p>
-				<p className="text-xs text-gray-400">Context Tokens</p>
-			</div>
-			<div className="flex items-center">
-				<p className="text-sm font-bold mr-1">{stats.total_generated_tokens.toLocaleString()}</p>
-				<p className="text-xs text-gray-400">Generated Tokens</p>
+			<div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
+				<StatItem value={stats.total_requests} label="Requests" />
+				<StatItem value={stats.total_context_tokens} label="Context Tokens" />
+				<StatItem value={stats.total_generated_tokens} label="Generated Tokens" />
 			</div>
 		</div>
-	);
+	</div>);
 }
