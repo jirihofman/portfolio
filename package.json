@@ -13,7 +13,7 @@
     "dotenv": "^16.4.5",
     "eslint-config-next": "15.0.1",
     "lodash": "^4.17.21",
-    "next": "^15.0.3-canary.4",
+    "next": "^15.1.4",
     "react": "^19.0.0-rc-603e6108-20241029",
     "react-dom": "^19.0.0-rc-603e6108-20241029",
     "react-icons": "^5.3.0"
