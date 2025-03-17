@@ -24,6 +24,6 @@
     "autoprefixer": "^10.4.20",
     "postcss": "^8.5.3",
     "postcss-nesting": "^13.0.1",
-    "tailwindcss": "^4.0.12"
+    "tailwindcss": "^4.0.14"
   }
 }
