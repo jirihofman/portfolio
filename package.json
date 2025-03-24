@@ -12,7 +12,7 @@
   "dependencies": {
     "@tailwindcss/postcss": "^4.0.14",
     "dotenv": "^16.4.7",
-    "eslint-config-next": "^15.2.2",
+    "eslint-config-next": "^15.2.3",
     "lodash": "^4.17.21",
     "next": "^15.2.3",
     "react": "^19.0.0",
