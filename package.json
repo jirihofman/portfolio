@@ -10,7 +10,7 @@
     "setup": "node ./lib/setup.mjs"
   },
   "dependencies": {
-    "@tailwindcss/postcss": "^4.0.17",
+    "@tailwindcss/postcss": "^4.1.3",
     "dotenv": "^16.4.7",
     "eslint-config-next": "^15.2.2",
     "lodash": "^4.17.21",
