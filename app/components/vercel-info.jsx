@@ -30,7 +30,7 @@ export const VercelInfo = async ({ info }) => {
 				height={16}
 				width={16}
 				style={{ fontSize: 'medium' }}
-				src='https://turbo.build/images/docs/pack/turbo-benchmark-icon-dark.svg'
+				src='turbo-benchmark-icon-dark.svg'
 				alt='Turbo icon'
 			/>
 		} content={<span>Using Turbopack</span>} />
