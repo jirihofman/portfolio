@@ -30,13 +30,6 @@ GH_TOKEN=YOUR_GH_TOKEN
 VC_TOKEN=YOUR_VERCEL_TOKEN
 ```
 
-#### Optional environment variables
-Providing an OpenAI API key is optional. If you don't have one, the site will work without it. If you do, you enable the "OpenAI Stats" section on the homepage. This will show your OpenAI API usage statistics for the last 30 days.
-```sh
-OPENAI_API_KEY=YOUR_OPENAI_API_KEY
-```
-
-
 Then install dependencies and run the development server:
 ```sh
 # Install dependencies.
