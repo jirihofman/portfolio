@@ -26,8 +26,7 @@ const nextConfig = {
     images: {
         remotePatterns: [
             { protocol: 'https', hostname: '**.githubusercontent.com' },
-            { protocol: 'https', hostname: '**.github.com' },
-            { protocol: 'https', hostname: 'turbo.build' }
+            { protocol: 'https', hostname: '**.github.com' }
         ],
     },
 };
