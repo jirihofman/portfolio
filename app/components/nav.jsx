@@ -4,6 +4,7 @@ import { GoArrowLeft } from 'react-icons/go';
 import Link from "next/link";
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from "react";
+import LoadingIndicator from './loading-indicator';
 
 export const Navigation = () => {
 	const ref = useRef(null);
@@ -34,15 +35,15 @@ export const Navigation = () => {
 					<div className="flex justify-between gap-8 text-base">
 						<Link
 							href={"/projects" + (customUsername ? `?customUsername=${customUsername}` : '')}
-							className="duration-200 text-zinc-400 hover:text-zinc-100"
+							className="duration-200 text-zinc-400 hover:text-zinc-100 relative block"
 						>
-							Projects
+							<span className="inline-flex items-center">Projects <LoadingIndicator /></span>
 						</Link>
 						<Link
 							href={"/contact" + (customUsername ? `?customUsername=${customUsername}` : '')}
-							className="duration-200 text-zinc-400 hover:text-zinc-100"
+							className="duration-200 text-zinc-400 hover:text-zinc-100 relative block"
 						>
-							Contact
+							<span className="inline-flex items-center">Contact <LoadingIndicator /></span>
 						</Link>
 					</div>
 

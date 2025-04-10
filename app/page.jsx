@@ -6,6 +6,7 @@ import { ProfileOrganizations } from "./components/orgs";
 import { RecentActivity } from "./components/recent-activity";
 import { getUser } from "./data";
 import { OpenAIStatsWidget } from "./components/openai-stats-widget";
+import LoadingIndicator from "./components/loading-indicator";
 
 const navigation = [
 	{ name: "Projects", href: "/projects" },
@@ -67,7 +68,9 @@ const LandingComponent = async ({ searchParams: { customUsername } }) => {
 							href={item.href + (customUsername ? `?customUsername=${customUsername}` : '')}
 							className="text-lg duration-500 text-zinc-500 hover:text-zinc-300"
 						>
-							{item.name}
+							<span className="inline-flex items-center">
+								{item.name} <LoadingIndicator />
+							</span>
 						</Link>
 					))}
 					<TryYourself customUsername={customUsername} />
