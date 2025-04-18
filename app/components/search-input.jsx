@@ -40,7 +40,7 @@ const UserSearch = ({ user }) => {
                     <input
                         placeholder="Search GitHub"
                         type="text"
-                        className="border border-gray-400 rounded-lg p-4 w-full"
+                        className="bg-gray-800 border border-gray-600 rounded-lg p-4 w-full text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={username}
                         onChange={handleUsernameChange}
                         onKeyDown={(e) => {
