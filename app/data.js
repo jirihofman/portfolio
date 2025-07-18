@@ -317,17 +317,15 @@ export const getCopilotPRs = unstable_cache(async (username, reponame) => {
 
             // Check if author is Copilot-related
             const authorLogin = pr.user?.login?.toLowerCase() || '';
-            const isCopilotAuthor = authorLogin.includes('copilot') || 
-                                   authorLogin === 'github-actions[bot]' ||
-                                   authorLogin.includes('dependabot');
+            const isCopilotAuthor = authorLogin.includes('copilot');
 
             // Check if PR has Copilot-related labels
-            const haseCopilotLabel = pr.labels?.some(label => 
+            const hasCopilotLabel = pr.labels?.some(label => 
                 label.name.toLowerCase().includes('copilot') ||
                 label.name.toLowerCase().includes('github-copilot')
             );
 
-            return isCopilotAuthor || haseCopilotLabel;
+            return isCopilotAuthor || hasCopilotLabel;
         });
 
         return copilotPRs.length;
