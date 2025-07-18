@@ -10,12 +10,25 @@ const HOURS_12 = 60 * 60 * 12;
 export async function getUser(username) {
     console.log('Fetching user data for', username);
     console.time('getUser');
-    const res = await fetch('https://api.github.com/users/' + username, {
-        headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-        next: { revalidate }
-    });
-    console.timeEnd('getUser');
-    return res.json();
+    
+    try {
+        const res = await fetch('https://api.github.com/users/' + username, {
+            headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+            next: { revalidate }
+        });
+        console.timeEnd('getUser');
+        
+        if (!res.ok) {
+            console.error('GitHub API returned an error for user.', res.status, res.statusText);
+            return { login: username, name: username, bio: "API not available" };
+        }
+        
+        return res.json();
+    } catch (error) {
+        console.error('Error fetching user:', error);
+        console.timeEnd('getUser');
+        return { login: username, name: username, bio: "API not available" };
+    }
 }
 
 export async function getRepos(username) {
@@ -65,21 +78,29 @@ export const getPinnedRepos = unstable_cache(async (username) => {
 export const getUserOrganizations = unstable_cache(async (username) => {
     console.log('Fetching organizations for', username);
     console.time('getUserOrganizations');
-    const res = await fetch('https://api.github.com/graphql', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-        body: JSON.stringify({
-            query: `{user(login: "${username}") {organizations(first: 6) {nodes {name,websiteUrl,url,avatarUrl,description}}}}`
-        }),
-    });
-    console.timeEnd('getUserOrganizations');
-    const orgs = await res.json();
-
-    if (!res.ok) {
-        console.error('GitHub graphql returned an error.', res.status, res.statusText, orgs);
+    
+    try {
+        const res = await fetch('https://api.github.com/graphql', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+            body: JSON.stringify({
+                query: `{user(login: "${username}") {organizations(first: 6) {nodes {name,websiteUrl,url,avatarUrl,description}}}}`
+            }),
+        });
+        console.timeEnd('getUserOrganizations');
+        
+        if (!res.ok) {
+            console.error('GitHub graphql returned an error.', res.status, res.statusText);
+            return { data: { user: { organizations: { nodes: [] } } } };
+        }
+        
+        const orgs = await res.json();
+        return orgs;
+    } catch (error) {
+        console.error('Error fetching organizations:', error);
+        console.timeEnd('getUserOrganizations');
         return { data: { user: { organizations: { nodes: [] } } } };
     }
-    return orgs;
 }, ['getUserOrganizations'], { revalidate: HOURS_12 });
 
 export const getVercelProjects = async () => {
@@ -161,33 +182,44 @@ export const getRepositoryPackageJson = unstable_cache(async (username, reponame
 export const getRecentUserActivity = async (username) => {
     console.log('Fetching recent activity for', username);
     console.time('getRecentUserActivity');
-    const res = await fetch('https://api.github.com/users/' + username + '/events?per_page=100', {
-        headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-        next: { revalidate: MINUTES_5 }
-    });
-    const response = await res.json();
-    // Check pagination
-    if (res.headers.get('link')) {
-        let page = 2;
-        let nextLink = res.headers.get('link').split(',').find((link) => link.includes('rel="next"'));
-        while (nextLink) {
-            const nextRes = await fetch('https://api.github.com/users/' + username + '/events?per_page=100&page=' + page, {
-                headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-                next: { revalidate: MINUTES_5 }
-            });
-            const nextResponse = await nextRes.json();
-            response.push(...nextResponse);
-            nextLink = nextRes.headers.get('link').split(',').find((link) => link.includes('rel="next"'));
-            page++;
-        };
-    }
+    
+    try {
+        const res = await fetch('https://api.github.com/users/' + username + '/events?per_page=100', {
+            headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+            next: { revalidate: MINUTES_5 }
+        });
+        
+        if (!res.ok) {
+            console.error('GitHub API /users/events returned an error.', res.status, res.statusText);
+            console.timeEnd('getRecentUserActivity');
+            return [];
+        }
+        
+        const response = await res.json();
+        
+        // Check pagination
+        if (res.headers.get('link')) {
+            let page = 2;
+            let nextLink = res.headers.get('link').split(',').find((link) => link.includes('rel="next"'));
+            while (nextLink) {
+                const nextRes = await fetch('https://api.github.com/users/' + username + '/events?per_page=100&page=' + page, {
+                    headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+                    next: { revalidate: MINUTES_5 }
+                });
+                const nextResponse = await nextRes.json();
+                response.push(...nextResponse);
+                nextLink = nextRes.headers.get('link')?.split(',').find((link) => link.includes('rel="next"'));
+                page++;
+            };
+        }
 
-    if (!res.ok) {
-        console.error('GitHub API /users returned an error.', res.status, res.statusText, response);
+        console.timeEnd('getRecentUserActivity');
+        return response;
+    } catch (error) {
+        console.error('Error fetching recent activity:', error);
+        console.timeEnd('getRecentUserActivity');
         return [];
     }
-    console.timeEnd('getRecentUserActivity');
-    return response;
 };
 
 export const getTrafficPageViews = async (username, reponame) => {
@@ -271,3 +303,75 @@ export const checkAppJsxExistence = unstable_cache(async (repoOwner, repoName) =
 
     return res;
 }, ['checkAppJsxExistence'], { revalidate: HOURS_1 });
+
+export const getRepositorySecurityInfo = unstable_cache(async (username, reponame) => {
+    console.log('Fetching repository security info for', username, reponame);
+    console.time('getRepositorySecurityInfo');
+    
+    try {
+        const res = await fetch(`https://api.github.com/repos/${username}/${reponame}`, {
+            headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+            next: { revalidate: HOURS_12 }
+        });
+        
+        if (!res.ok) {
+            console.error('GitHub API returned an error for repository info.', res.status, res.statusText);
+            return { security: {} };
+        }
+        
+        const repo = await res.json();
+        console.timeEnd('getRepositorySecurityInfo');
+        
+        return {
+            security: {
+                has_vulnerability_alerts: repo.security_and_analysis?.advanced_security?.status === 'enabled',
+                has_dependency_graph: repo.security_and_analysis?.dependency_graph?.status === 'enabled',
+                has_secret_scanning: repo.security_and_analysis?.secret_scanning?.status === 'enabled',
+                has_secret_scanning_push_protection: repo.security_and_analysis?.secret_scanning_push_protection?.status === 'enabled',
+                vulnerability_alerts_enabled: repo.has_vulnerability_alerts_enabled
+            }
+        };
+    } catch (error) {
+        console.error('Error fetching repository security info:', error);
+        console.timeEnd('getRepositorySecurityInfo');
+        return { security: {} };
+    }
+}, ['getRepositorySecurityInfo'], { revalidate: HOURS_12 });
+
+export const getDependabotPullRequests = unstable_cache(async (username, reponame) => {
+    console.log('Fetching Dependabot pull requests for', username, reponame);
+    console.time('getDependabotPullRequests');
+    
+    try {
+        const res = await fetch(`https://api.github.com/repos/${username}/${reponame}/pulls?author=app/dependabot&state=all&per_page=100`, {
+            headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+            next: { revalidate: HOURS_1 }
+        });
+        
+        if (!res.ok) {
+            console.error('GitHub API returned an error for Dependabot PRs.', res.status, res.statusText);
+            return { total: 0, open: 0, merged: 0, closed: 0 };
+        }
+        
+        const prs = await res.json();
+        console.timeEnd('getDependabotPullRequests');
+        
+        const stats = prs.reduce((acc, pr) => {
+            acc.total++;
+            if (pr.state === 'open') {
+                acc.open++;
+            } else if (pr.merged_at) {
+                acc.merged++;
+            } else {
+                acc.closed++;
+            }
+            return acc;
+        }, { total: 0, open: 0, merged: 0, closed: 0 });
+        
+        return stats;
+    } catch (error) {
+        console.error('Error fetching Dependabot pull requests:', error);
+        console.timeEnd('getDependabotPullRequests');
+        return { total: 0, open: 0, merged: 0, closed: 0 };
+    }
+}, ['getDependabotPullRequests'], { revalidate: HOURS_1 });

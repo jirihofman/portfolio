@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { FaGithub } from "react-icons/fa";
-import { GoDependabot, GoEye, GoEyeClosed, GoStar } from 'react-icons/go';
+import { GoDependabot, GoEye, GoEyeClosed, GoStar, GoShield, GoGitPullRequest } from 'react-icons/go';
 import { VercelInfo } from "../components/vercel-info";
-import { getTrafficPageViews, getDependabotAlerts } from "../data";
+import { getTrafficPageViews, getDependabotAlerts, getRepositorySecurityInfo, getDependabotPullRequests } from "../data";
 
 export const Article = async ({ project }) => {
 
@@ -11,9 +11,23 @@ export const Article = async ({ project }) => {
     /** Repository visitors info. */
     let views = <span title="Can't get traffic data for someone else's repo." className="flex items-center gap-1"><GoEyeClosed className="w-4 h-4" /></span>;
     let alerts = <span title="Can't get alerts data for someone else's repo."><GoDependabot className="w-4 h-4" /></span>;
+    let securityInfo = <span title="Can't get security info for someone else's repo."><GoShield className="w-4 h-4" /></span>;
+    let dependabotPRs = <span title="Can't get Dependabot PRs for someone else's repo."><GoGitPullRequest className="w-4 h-4" /></span>;
+    
     const isGitHubUser = process.env.GITHUB_USERNAME === project.owner.login;
     if (isGitHubUser) {
-        const [{ todayUniques, sumUniques } = {}, openAlertsBySeverity] = await Promise.all([getTrafficPageViews(project.owner.login, project.name), getDependabotAlerts(project.owner.login, project.name)]);
+        const [
+            { todayUniques, sumUniques } = {},
+            openAlertsBySeverity,
+            { security } = {},
+            dependabotPRStats
+        ] = await Promise.all([
+            getTrafficPageViews(project.owner.login, project.name),
+            getDependabotAlerts(project.owner.login, project.name),
+            getRepositorySecurityInfo(project.owner.login, project.name),
+            getDependabotPullRequests(project.owner.login, project.name)
+        ]);
+        
         views = <span title="Unique repository visitors: Last 14 days / Today." className="flex items-center gap-1">
             <GoEye className="w-4 h-4" />{" "}
             {Intl.NumberFormat("en-US", { notation: "compact" }).format(sumUniques)}/{Intl.NumberFormat("en-US", { notation: "compact" }).format(todayUniques)}
@@ -26,6 +40,30 @@ export const Article = async ({ project }) => {
         alerts = <span title={alertTitle} className="flex items-center gap-1">
             <GoDependabot className="w-4 h-4 danger" fill={alertColor} />{" "}            
             {Intl.NumberFormat("en-US", { notation: "compact" }).format(alertCountTotal)}
+        </span>;
+
+        // Security information display
+        const securityFeatures = [];
+        if (security?.has_vulnerability_alerts) securityFeatures.push("VA");
+        if (security?.has_dependency_graph) securityFeatures.push("DG");
+        if (security?.has_secret_scanning) securityFeatures.push("SS");
+        if (security?.has_secret_scanning_push_protection) securityFeatures.push("PP");
+        
+        const securityColor = securityFeatures.length >= 3 ? "green" : securityFeatures.length >= 2 ? "yellow" : securityFeatures.length >= 1 ? "orange" : "red";
+        const securityTitle = `Security features enabled: ${securityFeatures.join(", ") || "None"} (VA=Vulnerability Alerts, DG=Dependency Graph, SS=Secret Scanning, PP=Push Protection)`;
+        
+        securityInfo = <span title={securityTitle} className="flex items-center gap-1">
+            <GoShield className="w-4 h-4" fill={securityColor} />{" "}
+            {securityFeatures.length}
+        </span>;
+
+        // Dependabot PRs display
+        const prTitle = `Dependabot PRs - Total: ${dependabotPRStats.total}, Open: ${dependabotPRStats.open}, Merged: ${dependabotPRStats.merged}, Closed: ${dependabotPRStats.closed}`;
+        const prColor = dependabotPRStats.open > 0 ? "blue" : dependabotPRStats.total > 0 ? "green" : "gray";
+        
+        dependabotPRs = <span title={prTitle} className="flex items-center gap-1">
+            <GoGitPullRequest className="w-4 h-4" fill={prColor} />{" "}
+            {dependabotPRStats.total}
         </span>;
     }
 
@@ -61,10 +99,11 @@ export const Article = async ({ project }) => {
                 {project.description}
             </div>
             <div className="flex justify-between gap-2 items-center float-left mt-2 border-t-2 border-gray-700 border-opacity-50">
-                <span className="text-zinc-500 text-xs flex items-center gap-1">
+                <span className="text-zinc-500 text-xs flex items-center gap-2">
                     {views}
-                    {" "}
                     {alerts}
+                    {securityInfo}
+                    {dependabotPRs}
                 </span>
             </div>
             <div className="flex justify-between gap-2 items-center float-right mt-2 border-t-2 border-gray-700 border-opacity-50">
