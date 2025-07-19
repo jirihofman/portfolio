@@ -10,8 +10,18 @@ const nextConfig = {
         }
     },
     env: {
-        /** GitHub username loaded from environment variable. */
-        GITHUB_USERNAME: process.env.GITHUB_USERNAME || 'octocat',
+        /** GitHub username loaded in build time. */
+        GITHUB_USERNAME: await fetch('https://api.github.com/user',
+            {
+                headers: {
+                    Authorization: `token ${process.env.GH_TOKEN}`,
+                },
+                next: {
+                    // No revalidation needed. It is fine to get it on build time and use it forever.
+                    tags: ['github', 'github-username'],
+                }
+            }
+        ).then(res => res.json()).then(data => data.login),
     },
     images: {
         remotePatterns: [
