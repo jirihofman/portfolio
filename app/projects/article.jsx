@@ -4,40 +4,96 @@ import { GoDependabot, GoEye, GoEyeClosed, GoStar } from 'react-icons/go';
 import { SiGithubcopilot } from 'react-icons/si';
 import { VercelInfo } from "../components/vercel-info";
 import { getTrafficPageViews, getDependabotAlerts, getCopilotPRs } from "../data";
+import Popover from "../components/popover";
 
 export const Article = async ({ project }) => {
 
     const appLink = project.homepage ? project.homepage : project.html_url;
 
     /** Repository visitors info. */
-    let views = <span title="Can't get traffic data for someone else's repo." className="flex items-center gap-1"><GoEyeClosed className="w-4 h-4" /></span>;
-    let alerts = <span title="Can't get alerts data for someone else's repo."><GoDependabot className="w-4 h-4" /></span>;
-    let copilotPRs = <span title="Can't get Copilot data for someone else's repo."><SiGithubcopilot className="w-4 h-4" /></span>;
+    let views = <Popover 
+        button={<span className="flex items-center gap-1"><GoEyeClosed className="w-4 h-4" /></span>}
+        content="Can't get traffic data for someone else's repo."
+    />;
+    let alerts = <Popover 
+        button={<span><GoDependabot className="w-4 h-4" /></span>}
+        content="Can't get alerts data for someone else's repo."
+    />;
+    let copilotPRs = <Popover 
+        button={<span><SiGithubcopilot className="w-4 h-4" /></span>}
+        content="Can't get Copilot data for someone else's repo."
+    />;
     const isGitHubUser = process.env.GITHUB_USERNAME === project.owner.login;
     if (isGitHubUser) {
-        const [{ todayUniques, sumUniques } = {}, openAlertsBySeverity, copilotPRCount] = await Promise.all([
-            getTrafficPageViews(project.owner.login, project.name), 
-            getDependabotAlerts(project.owner.login, project.name),
-            getCopilotPRs(project.owner.login, project.name)
-        ]);
-        views = <span title="Unique repository visitors: Last 14 days / Today." className="flex items-center gap-1">
-            <GoEye className="w-4 h-4" />{" "}
-            {Intl.NumberFormat("en-US", { notation: "compact" }).format(sumUniques)}/{Intl.NumberFormat("en-US", { notation: "compact" }).format(todayUniques)}
-        </span>;
+        try {
+            const [{ todayUniques, sumUniques } = {}, openAlertsBySeverity, copilotPRCount] = await Promise.all([
+                getTrafficPageViews(project.owner.login, project.name), 
+                getDependabotAlerts(project.owner.login, project.name),
+                getCopilotPRs(project.owner.login, project.name)
+            ]);
+            
+            views = <Popover
+                button={<span className="flex items-center gap-1">
+                    <GoEye className="w-4 h-4" />{" "}
+                    {Intl.NumberFormat("en-US", { notation: "compact" }).format(sumUniques || 0)}/{Intl.NumberFormat("en-US", { notation: "compact" }).format(todayUniques || 0)}
+                </span>}
+                content={
+                    <div>
+                        <div className="font-semibold text-gray-800">Repository Visitors</div>
+                        <div className="mt-1">
+                            <div>Last 14 days: <span className="font-medium">{Intl.NumberFormat("en-US").format(sumUniques || 0)}</span></div>
+                            <div>Today: <span className="font-medium">{Intl.NumberFormat("en-US").format(todayUniques || 0)}</span></div>
+                        </div>
+                        <div className="text-xs mt-2 text-gray-600">Unique visitors only</div>
+                    </div>
+                }
+            />;
 
-        const alertColor = openAlertsBySeverity.critical > 0 ? "red" : openAlertsBySeverity.high > 0 ? "orange" : openAlertsBySeverity.medium > 0 ? "yellow" : openAlertsBySeverity.low > 0 ? "blue" : "gray";
-        const alertCountTotal = (openAlertsBySeverity.critical || 0) + (openAlertsBySeverity.high || 0) + (openAlertsBySeverity.medium || 0) + (openAlertsBySeverity.low || 0);
-        const alertTitle = alertCountTotal > 0 ? `Open Dependabot alerts: ` + (JSON.stringify(openAlertsBySeverity)) : "No open Dependabot alerts.";
+            const alertColor = (openAlertsBySeverity?.critical || 0) > 0 ? "red" : (openAlertsBySeverity?.high || 0) > 0 ? "orange" : (openAlertsBySeverity?.medium || 0) > 0 ? "yellow" : (openAlertsBySeverity?.low || 0) > 0 ? "blue" : "gray";
+            const alertCountTotal = (openAlertsBySeverity?.critical || 0) + (openAlertsBySeverity?.high || 0) + (openAlertsBySeverity?.medium || 0) + (openAlertsBySeverity?.low || 0);
 
-        alerts = <span title={alertTitle} className="flex items-center gap-1">
-            <GoDependabot className="w-4 h-4 danger" fill={alertColor} />{" "}            
-            {Intl.NumberFormat("en-US", { notation: "compact" }).format(alertCountTotal)}
-        </span>;
+            alerts = <Popover
+                button={<span className="flex items-center gap-1">
+                    <GoDependabot className="w-4 h-4 danger" fill={alertColor} />{" "}            
+                    {Intl.NumberFormat("en-US", { notation: "compact" }).format(alertCountTotal)}
+                </span>}
+                content={
+                    <div>
+                        <div className="font-semibold text-gray-800">Dependabot Alerts</div>
+                        {alertCountTotal > 0 ? (
+                            <div className="mt-1">
+                                {(openAlertsBySeverity?.critical || 0) > 0 && <div className="text-red-600">Critical: {openAlertsBySeverity.critical}</div>}
+                                {(openAlertsBySeverity?.high || 0) > 0 && <div className="text-orange-600">High: {openAlertsBySeverity.high}</div>}
+                                {(openAlertsBySeverity?.medium || 0) > 0 && <div className="text-yellow-600">Medium: {openAlertsBySeverity.medium}</div>}
+                                {(openAlertsBySeverity?.low || 0) > 0 && <div className="text-blue-600">Low: {openAlertsBySeverity.low}</div>}
+                            </div>
+                        ) : (
+                            <div className="mt-1 text-green-600">No open alerts</div>
+                        )}
+                        <div className="text-xs mt-2 text-gray-600">Security vulnerabilities</div>
+                    </div>
+                }
+            />;
 
-        copilotPRs = <span title={`Merged Copilot pull requests in the last 2 weeks: ${copilotPRCount}`} className="flex items-center gap-1">
-            <SiGithubcopilot className="w-4 h-4" />{" "}
-            {Intl.NumberFormat("en-US", { notation: "compact" }).format(copilotPRCount)}
-        </span>;
+            copilotPRs = <Popover
+                button={<span className="flex items-center gap-1">
+                    <SiGithubcopilot className="w-4 h-4" />{" "}
+                    {Intl.NumberFormat("en-US", { notation: "compact" }).format(copilotPRCount || 0)}
+                </span>}
+                content={
+                    <div>
+                        <div className="font-semibold text-gray-800">GitHub Copilot PRs</div>
+                        <div className="mt-1">
+                            <div>Merged PRs: <span className="font-medium">{Intl.NumberFormat("en-US").format(copilotPRCount || 0)}</span></div>
+                        </div>
+                        <div className="text-xs mt-2 text-gray-600">Last 2 weeks</div>
+                    </div>
+                }
+            />;
+        } catch (error) {
+            console.error('Failed to fetch project stats:', error);
+            // Keep the existing fallback popovers for non-GitHub users
+        }
     }
 
     return (

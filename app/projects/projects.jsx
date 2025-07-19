@@ -20,17 +20,17 @@ export default async function ProjectsComponent({ username }) {
 	// interested only in the project name, link, framework and description
 	// interested only in Vercel projects that are linked to GitHub repositories
 	const vercelProjectsDetails = vercelProjects.projects
-		.filter(project => {
+		?.filter(project => {
 			const githubRepo = repositories.find(repo => repo.name === project.name);
 			return githubRepo;
 		})
-		.map((project) => ({
+		?.map((project) => ({
 			framework: project.framework,
 			name: project.name,
 			nodeVersion: project.nodeVersion,
 			link: project.link,
 			description: project.description,
-		}));
+		})) || [];
 
 	// For Vercel projects, add the framework to the GitHub repository info object.
 	repositories.forEach(repo => {

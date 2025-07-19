@@ -22,16 +22,26 @@ export async function getUser(username) {
 export async function getRepos(username) {
     console.log('Fetching repos for', username);
     console.time('getRepos');
-    const res = await fetch('https://api.github.com/users/' + username + '/repos', {
-        headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-        next: { revalidate: HOURS_1 }
-    });
-    if (!res.ok) {
-        console.error('GitHub API returned an error.', res.status, res.statusText);
+    try {
+        const res = await fetch('https://api.github.com/users/' + username + '/repos', {
+            headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+            next: { revalidate: HOURS_1 }
+        });
+        if (!res.ok) {
+            console.error('GitHub API returned an error.', res.status, res.statusText);
+            return [];
+        }
+        console.timeEnd('getRepos');
+        try {
+            return await res.json();
+        } catch (jsonError) {
+            console.error('Failed to parse GitHub repos response as JSON:', jsonError);
+            return [];
+        }
+    } catch (error) {
+        console.error('GitHub repos fetch failed:', error);
         return [];
     }
-    console.timeEnd('getRepos');
-    return res.json();
 }
 
 export async function getSocialAccounts(username) {
@@ -48,39 +58,49 @@ export async function getSocialAccounts(username) {
 export const getPinnedRepos = unstable_cache(async (username) => {
     console.log('Fetching pinned repos for', username);
     console.time('getPinnedRepos');
-    const res = await fetch('https://api.github.com/graphql', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-        body: JSON.stringify({ query: `{user(login: "${username}") {pinnedItems(first: 6, types: REPOSITORY) {nodes {... on Repository {name}}}}}` }),
-    });
-    if (!res.ok) {
-        console.error('GitHub graphql returned an error.', res.status, res.statusText);
+    try {
+        const res = await fetch('https://api.github.com/graphql', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+            body: JSON.stringify({ query: `{user(login: "${username}") {pinnedItems(first: 6, types: REPOSITORY) {nodes {... on Repository {name}}}}}` }),
+        });
+        if (!res.ok) {
+            console.error('GitHub graphql returned an error.', res.status, res.statusText);
+            return [];
+        }
+        const pinned = await res.json();
+        console.timeEnd('getPinnedRepos');
+        const names = pinned.data?.user?.pinnedItems?.nodes?.map((node) => node.name) || [];
+        return names;
+    } catch (error) {
+        console.error('GitHub pinned repos fetch failed:', error);
         return [];
     }
-    const pinned = await res.json();
-    console.timeEnd('getPinnedRepos');
-    const names = pinned.data.user.pinnedItems.nodes.map((node) => node.name);
-    return names;
 }, ['getPinnedRepos'], { revalidate: HOURS_12 });
 
 export const getUserOrganizations = unstable_cache(async (username) => {
     console.log('Fetching organizations for', username);
     console.time('getUserOrganizations');
-    const res = await fetch('https://api.github.com/graphql', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-        body: JSON.stringify({
-            query: `{user(login: "${username}") {organizations(first: 6) {nodes {name,websiteUrl,url,avatarUrl,description}}}}`
-        }),
-    });
-    console.timeEnd('getUserOrganizations');
-    const orgs = await res.json();
+    try {
+        const res = await fetch('https://api.github.com/graphql', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+            body: JSON.stringify({
+                query: `{user(login: "${username}") {organizations(first: 6) {nodes {name,websiteUrl,url,avatarUrl,description}}}}`
+            }),
+        });
+        console.timeEnd('getUserOrganizations');
+        const orgs = await res.json();
 
-    if (!res.ok) {
-        console.error('GitHub graphql returned an error.', res.status, res.statusText, orgs);
+        if (!res.ok) {
+            console.error('GitHub graphql returned an error.', res.status, res.statusText, orgs);
+            return { data: { user: { organizations: { nodes: [] } } } };
+        }
+        return orgs;
+    } catch (error) {
+        console.error('GitHub organizations fetch failed:', error);
         return { data: { user: { organizations: { nodes: [] } } } };
     }
-    return orgs;
 }, ['getUserOrganizations'], { revalidate: HOURS_12 });
 
 export const getVercelProjects = async () => {
@@ -101,7 +121,12 @@ export const getVercelProjects = async () => {
             console.error('Vercel API returned an error.', res.status, res.statusText);
             return { projects: [] };
         }
-        return res.json();
+        try {
+            return await res.json();
+        } catch (jsonError) {
+            console.error('Failed to parse Vercel API response as JSON:', jsonError);
+            return { projects: [] };
+        }
     } catch (error) {
         console.error('Vercel API fetch failed:', error);
         return { projects: [] };
