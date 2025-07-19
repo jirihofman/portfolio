@@ -5,6 +5,7 @@ const revalidate = 60;
 const MINUTES_5 = 60 * 5;
 const HOURS_1 = 60 * 60;
 const HOURS_12 = 60 * 60 * 12;
+const HOURS_24 = 60 * 60 * 24;
 
 // TODO: Implement option to switch between info for authenticated user and other users.
 export async function getUser(username) {
@@ -89,17 +90,22 @@ export const getVercelProjects = async () => {
     }
     console.log('Fetching Vercel projects');
     console.time('getVercelProjects');
-    const res = await fetch('https://api.vercel.com/v9/projects', {
-        headers: { Authorization: `Bearer ${process.env.VC_TOKEN}` },
-        next: { revalidate: HOURS_12 }
-    });
-    console.timeEnd('getVercelProjects');
-    // eg. expired token.
-    if (!res.ok) {
-        console.error('Vercel API returned an error.', res.status, res.statusText);
+    try {
+        const res = await fetch('https://api.vercel.com/v9/projects', {
+            headers: { Authorization: `Bearer ${process.env.VC_TOKEN}` },
+            next: { revalidate: HOURS_12 }
+        });
+        console.timeEnd('getVercelProjects');
+        // eg. expired token.
+        if (!res.ok) {
+            console.error('Vercel API returned an error.', res.status, res.statusText);
+            return { projects: [] };
+        }
+        return res.json();
+    } catch (error) {
+        console.error('Vercel API fetch failed:', error);
         return { projects: [] };
     }
-    return res.json();
 };
 
 /** Cache revalidated every 12 hours. */
@@ -271,3 +277,60 @@ export const checkAppJsxExistence = unstable_cache(async (repoOwner, repoName) =
 
     return res;
 }, ['checkAppJsxExistence'], { revalidate: HOURS_1 });
+
+/**
+ * Get the number of merged pull requests created by Copilot in the last 2 weeks.
+ * Identifies Copilot PRs by:
+ * - Author: github-actions[bot] or accounts containing "copilot"
+ * - Labels: containing "copilot" or "github-copilot"
+ * @param {string} username GitHub username
+ * @param {string} reponame repository name
+ * @returns {number} Number of merged Copilot PRs in the last 2 weeks
+ */
+export const getCopilotPRs = unstable_cache(async (username, reponame) => {
+    // Calculate date 2 weeks ago
+    const twoWeeksAgo = new Date();
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+    const since = twoWeeksAgo.toISOString();
+
+    try {
+        // Get merged pull requests from the last 2 weeks
+        const res = await fetch(`https://api.github.com/repos/${username}/${reponame}/pulls?state=closed&sort=updated&direction=desc&since=${since}&per_page=100`, {
+            headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+            next: { revalidate: HOURS_24 }
+        });
+
+        if (!res.ok) {
+            console.error(`Error fetching PRs for ${username}/${reponame}:`, res.status, res.statusText);
+            return 0;
+        }
+
+        const prs = await res.json();
+        
+        // Filter for merged PRs that were created by Copilot
+        const copilotPRs = prs.filter(pr => {
+            // Must be merged and within the last 2 weeks
+            if (!pr.merged_at) return false;
+            
+            const mergedDate = new Date(pr.merged_at);
+            if (mergedDate < twoWeeksAgo) return false;
+
+            // Check if author is Copilot-related
+            const authorLogin = pr.user?.login?.toLowerCase() || '';
+            const isCopilotAuthor = authorLogin.includes('copilot');
+
+            // Check if PR has Copilot-related labels
+            const hasCopilotLabel = pr.labels?.some(label => 
+                label.name.toLowerCase().includes('copilot') ||
+                label.name.toLowerCase().includes('github-copilot')
+            );
+
+            return isCopilotAuthor || hasCopilotLabel;
+        });
+
+        return copilotPRs.length;
+    } catch (error) {
+        console.error(`Error getting Copilot PRs for ${username}/${reponame}:`, error);
+        return 0;
+    }
+}, ['getCopilotPRs'], { revalidate: HOURS_24 });

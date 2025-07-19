@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { FaGithub } from "react-icons/fa";
 import { GoDependabot, GoEye, GoEyeClosed, GoStar } from 'react-icons/go';
+import { SiGithubcopilot } from 'react-icons/si';
 import { VercelInfo } from "../components/vercel-info";
-import { getTrafficPageViews, getDependabotAlerts } from "../data";
+import { getTrafficPageViews, getDependabotAlerts, getCopilotPRs } from "../data";
 
 export const Article = async ({ project }) => {
 
@@ -11,9 +12,14 @@ export const Article = async ({ project }) => {
     /** Repository visitors info. */
     let views = <span title="Can't get traffic data for someone else's repo." className="flex items-center gap-1"><GoEyeClosed className="w-4 h-4" /></span>;
     let alerts = <span title="Can't get alerts data for someone else's repo."><GoDependabot className="w-4 h-4" /></span>;
+    let copilotPRs = <span title="Can't get Copilot data for someone else's repo."><SiGithubcopilot className="w-4 h-4" /></span>;
     const isGitHubUser = process.env.GITHUB_USERNAME === project.owner.login;
     if (isGitHubUser) {
-        const [{ todayUniques, sumUniques } = {}, openAlertsBySeverity] = await Promise.all([getTrafficPageViews(project.owner.login, project.name), getDependabotAlerts(project.owner.login, project.name)]);
+        const [{ todayUniques, sumUniques } = {}, openAlertsBySeverity, copilotPRCount] = await Promise.all([
+            getTrafficPageViews(project.owner.login, project.name), 
+            getDependabotAlerts(project.owner.login, project.name),
+            getCopilotPRs(project.owner.login, project.name)
+        ]);
         views = <span title="Unique repository visitors: Last 14 days / Today." className="flex items-center gap-1">
             <GoEye className="w-4 h-4" />{" "}
             {Intl.NumberFormat("en-US", { notation: "compact" }).format(sumUniques)}/{Intl.NumberFormat("en-US", { notation: "compact" }).format(todayUniques)}
@@ -26,6 +32,11 @@ export const Article = async ({ project }) => {
         alerts = <span title={alertTitle} className="flex items-center gap-1">
             <GoDependabot className="w-4 h-4 danger" fill={alertColor} />{" "}            
             {Intl.NumberFormat("en-US", { notation: "compact" }).format(alertCountTotal)}
+        </span>;
+
+        copilotPRs = <span title={`Merged Copilot pull requests in the last 2 weeks: ${copilotPRCount}`} className="flex items-center gap-1">
+            <SiGithubcopilot className="w-4 h-4" />{" "}
+            {Intl.NumberFormat("en-US", { notation: "compact" }).format(copilotPRCount)}
         </span>;
     }
 
@@ -65,6 +76,8 @@ export const Article = async ({ project }) => {
                     {views}
                     {" "}
                     {alerts}
+                    {" "}
+                    {copilotPRs}
                 </span>
             </div>
             <div className="flex justify-between gap-2 items-center float-right mt-2 border-t-2 border-gray-700 border-opacity-50">
