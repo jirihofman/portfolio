@@ -287,7 +287,7 @@ export const checkAppJsxExistence = unstable_cache(async (repoOwner, repoName) =
  * @param {string} reponame repository name
  * @returns {number} Number of merged Copilot PRs in the last 2 weeks
  */
-export const getCopilotPRs = unstable_cache(async (username, reponame) => {
+export const getCopilotPRs = async (username, reponame) => {
     // Calculate date 2 weeks ago
     const twoWeeksAgo = new Date();
     twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
@@ -333,4 +333,4 @@ export const getCopilotPRs = unstable_cache(async (username, reponame) => {
         console.error(`Error getting Copilot PRs for ${username}/${reponame}:`, error);
         return 0;
     }
-}, ['getCopilotPRs'], { revalidate: HOURS_24 });
+}
