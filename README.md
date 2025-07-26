@@ -10,6 +10,37 @@ It is supposed to be used as a **template for other GitHub users' portfolios**. 
 - **Framework**: [Next.js](https://nextjs.org/)
 - **Deployment**: [Vercel](https://vercel.com)
 - **Styling**: [Tailwind CSS](https://tailwindcss.com)
+
+## Project Information Features
+
+The portfolio automatically displays comprehensive information for each repository in the `/projects` page. Here's what visitors can expect to see for each project:
+
+### Repository Details
+- **Project name** with gradient styling and clickable links
+- **Description** from GitHub repository
+- **Creation date** showing when the project was started
+- **Star count** with compact number formatting
+- **GitHub repository link** for easy access to source code
+
+### Repository Analytics (for your own repositories)
+- **Visitor statistics**: Unique repository visitors in the last 14 days and today
+- **Security alerts**: Dependabot alerts categorized by severity (critical, high, medium, low)
+- **AI assistance**: Count of merged Copilot pull requests in the last 2 weeks
+
+### Deployment & Technology Detection
+- **Vercel integration**: Shows deployment status, Node.js version, and framework info
+- **Framework detection**: 
+  - Next.js projects with Pages Router, App Router, or hybrid detection
+  - Turbopack usage indicator
+  - Next.js version upgrade recommendations
+- **UI library detection**: Automatically identifies Tailwind CSS, React Bootstrap, Primer, and other libraries from package.json
+
+### Data Sources
+- **GitHub API**: Repository information, traffic data, security alerts, pull requests
+- **Vercel API**: Deployment information and project details
+- **GraphQL queries**: Pinned repositories and organization data
+
+All data is cached and refreshed automatically to ensure good performance while providing up-to-date information.
 ## Running Locally
 
 
