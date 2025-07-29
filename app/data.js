@@ -5,7 +5,7 @@ const revalidate = 60;
 const MINUTES_5 = 60 * 5;
 const HOURS_1 = 60 * 60;
 const HOURS_12 = 60 * 60 * 12;
-const HOURS_24 = 60 * 60 * 24;
+// const HOURS_24 = 60 * 60 * 24;
 
 // TODO: Implement option to switch between info for authenticated user and other users.
 export async function getUser(username) {
@@ -287,7 +287,7 @@ export const checkAppJsxExistence = unstable_cache(async (repoOwner, repoName) =
  * @param {string} reponame repository name
  * @returns {number} Number of merged Copilot PRs in the last 2 weeks
  */
-export const getCopilotPRs = async (username, reponame) => {
+export const getCopilotPRs = unstable_cache(async (username, reponame) => {
     // Calculate date 2 weeks ago
     const twoWeeksAgo = new Date();
     twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
@@ -297,7 +297,8 @@ export const getCopilotPRs = async (username, reponame) => {
         // Get merged pull requests from the last 2 weeks
         const res = await fetch(`https://api.github.com/repos/${username}/${reponame}/pulls?state=closed&sort=updated&direction=desc&since=${since}&per_page=100`, {
             headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-            next: { revalidate: HOURS_24 }
+            // Result is bigger than 2MB and cannot be cached by default.
+            // next: { revalidate: HOURS_12 }
         });
 
         if (!res.ok) {
@@ -333,4 +334,4 @@ export const getCopilotPRs = async (username, reponame) => {
         console.error(`Error getting Copilot PRs for ${username}/${reponame}:`, error);
         return 0;
     }
-}
+}, ['getCopilotPRs'], { revalidate: HOURS_12 });
