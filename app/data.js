@@ -5,7 +5,7 @@ const revalidate = 60;
 const MINUTES_5 = 60 * 5;
 const HOURS_1 = 60 * 60;
 const HOURS_12 = 60 * 60 * 12;
-// const HOURS_24 = 60 * 60 * 24;
+const HOURS_24 = 60 * 60 * 24;
 
 // TODO: Implement option to switch between info for authenticated user and other users.
 export async function getUser(username) {
@@ -244,8 +244,9 @@ export const getDependabotAlerts = unstable_cache(async (username, reponame) => 
  */
 export const checkAppJsxExistence = unstable_cache(async (repoOwner, repoName) => {
     const urlPagesApp = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/pages/_app.jsx`;
-    // TODO: Add more possible ways to check for App Router.
+    const urlPagesAppTsx = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/pages/_app.tsx`;
     const urlAppLayout = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/app/layout.jsx`;
+    const urlAppLayoutTsx = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/app/layout.tsx`;
 
     const res = {
         isRouterPages: false,
@@ -253,14 +254,15 @@ export const checkAppJsxExistence = unstable_cache(async (repoOwner, repoName) =
     };
 
     try {
+        // First, try JSX versions
         const [ isPagesRes, isAppLayoutRes ] = await Promise.all([
             fetch(urlPagesApp, {
                 headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-                next: { revalidate: HOURS_1 }
+                next: { revalidate: HOURS_24 }
             }),
             fetch(urlAppLayout, {
                 headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-                next: { revalidate: HOURS_1 }
+                next: { revalidate: HOURS_24 }
             }),
         ]);
 
@@ -271,12 +273,33 @@ export const checkAppJsxExistence = unstable_cache(async (repoOwner, repoName) =
         if (isAppLayoutRes.status === 200) {
             res.isRouterApp = true;
         }
+
+        // If JSX endpoints didn't resolve, try TSX fallbacks
+        if (!res.isRouterPages) {
+            const isPagesResTsx = await fetch(urlPagesAppTsx, {
+                headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+                next: { revalidate: HOURS_24 }
+            });
+            if (isPagesResTsx.status === 200) {
+                res.isRouterPages = true;
+            }
+        }
+
+        if (!res.isRouterApp) {
+            const isAppLayoutResTsx = await fetch(urlAppLayoutTsx, {
+                headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+                next: { revalidate: HOURS_24 }
+            });
+            if (isAppLayoutResTsx.status === 200) {
+                res.isRouterApp = true;
+            }
+        }
     } catch (error) {
         console.error(`Error checking _app.jsx existence in ${repoName}: ${error.message}`);
     }
 
     return res;
-}, ['checkAppJsxExistence'], { revalidate: HOURS_1 });
+}, ['checkAppJsxExistence'], { revalidate: HOURS_24 });
 
 /**
  * Get the number of merged pull requests created by Copilot in the last 2 weeks.
