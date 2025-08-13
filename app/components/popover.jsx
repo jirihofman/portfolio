@@ -14,14 +14,15 @@ const Popover = ({ button, content }) => {
 
 	return (
 		<div className="relative">
-			<button
-				// className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-sm"
-				className="items-center"
+			<span
+				role="button"
+				tabIndex={-1}
+				className="items-center cursor-pointer"
 				onMouseEnter={handleMouseEnter}
 				onMouseLeave={handleMouseLeave}
 			>
 				{button}
-			</button>
+			</span>
 			{isHovered && (
 				<div className="absolute right-1 mt-2 w-48 bg-gray-300 bg-opacity-90 border border-gray-300 rounded-lg shadow-lg z-40">
 					<div className="p-2 text-sm text-black">
