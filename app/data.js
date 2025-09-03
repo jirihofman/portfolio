@@ -138,6 +138,54 @@ export const getNextjsLatestRelease = unstable_cache(async () => {
     return result;
 }, ['getNextjsLatestRelease'], { revalidate: HOURS_1 });
 
+/**
+ * Generic function to get latest release for any framework from GitHub
+ * @param {string} repoName - Repository name
+ * @param {string} owner - Repository owner
+ * @param {string} cacheKey - Unique cache key for this framework
+ * @returns {Object} Object with tagName and updatedAt
+ */
+export const getFrameworkLatestRelease = unstable_cache(async (repoName, owner, cacheKey) => {
+    const res = await fetch('https://api.github.com/graphql', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+        next: { revalidate: HOURS_12 },
+        body: JSON.stringify({
+            query: `{
+                repository(name: "${repoName}", owner: "${owner}") {
+                    latestRelease {
+                        tagName
+                        updatedAt
+                    }
+                }
+            }`
+        }),
+    });
+    if (!res.ok) {
+        console.error(`GitHub API returned an error for ${owner}/${repoName}:`, res.status, res.statusText);
+        return {};
+    }
+    const latest = await res.json();
+
+    if (!latest.data?.repository?.latestRelease) {
+        console.error(`No latest release found for ${owner}/${repoName}`);
+        return {};
+    }
+
+    const result = {
+        tagName: latest.data.repository.latestRelease.tagName.replace('v', ''),
+        updatedAt: latest.data.repository.latestRelease.updatedAt,
+    }
+    return result;
+}, ['getFrameworkLatestRelease'], { revalidate: HOURS_1 });
+
+// Specific functions for each framework
+export const getAstroLatestRelease = () => getFrameworkLatestRelease('astro', 'withastro', 'astro');
+export const getNuxtLatestRelease = () => getFrameworkLatestRelease('nuxt', 'nuxt', 'nuxt');
+export const getSvelteKitLatestRelease = () => getFrameworkLatestRelease('kit', 'sveltejs', 'sveltekit');
+export const getRemixLatestRelease = () => getFrameworkLatestRelease('remix', 'remix-run', 'remix');
+export const getGatsbyLatestRelease = () => getFrameworkLatestRelease('gatsby', 'gatsbyjs', 'gatsby');
+
 export const getRepositoryPackageJson = unstable_cache(async (username, reponame) => {
     const res = await fetch('https://api.github.com/graphql', {
         method: 'POST',
@@ -358,3 +406,100 @@ export const getCopilotPRs = unstable_cache(async (username, reponame) => {
         return 0;
     }
 }, ['getCopilotPRs'], { revalidate: HOURS_12 });
+
+/**
+ * Detects frameworks from package.json dependencies and devDependencies
+ * @param {Object} packageJson - Parsed package.json content
+ * @returns {Array} Array of detected frameworks with their versions
+ */
+export function detectFrameworks(packageJson) {
+    if (!packageJson) return [];
+
+    const dependencies = { ...packageJson.dependencies, ...packageJson.devDependencies };
+    const frameworks = [];
+
+    // Framework detection rules
+    const frameworkMap = {
+        'next': {
+            name: 'Next.js',
+            type: 'nextjs',
+            getLatestRelease: getNextjsLatestRelease
+        },
+        'astro': {
+            name: 'Astro',
+            type: 'astro',
+            getLatestRelease: getAstroLatestRelease
+        },
+        'nuxt': {
+            name: 'Nuxt',
+            type: 'nuxt',
+            getLatestRelease: getNuxtLatestRelease
+        },
+        '@sveltejs/kit': {
+            name: 'SvelteKit',
+            type: 'sveltekit',
+            getLatestRelease: getSvelteKitLatestRelease
+        },
+        '@remix-run/react': {
+            name: 'Remix',
+            type: 'remix',
+            getLatestRelease: getRemixLatestRelease
+        },
+        'gatsby': {
+            name: 'Gatsby',
+            type: 'gatsby',
+            getLatestRelease: getGatsbyLatestRelease
+        }
+    };
+
+    // Check for each framework
+    for (const [dep, framework] of Object.entries(frameworkMap)) {
+        if (dependencies[dep]) {
+            const version = dependencies[dep].replace(/[\^~]/, '');
+            frameworks.push({
+                ...framework,
+                version,
+                dependency: dep
+            });
+        }
+    }
+
+    return frameworks;
+}
+
+/**
+ * Get framework information with version comparison for a repository
+ * @param {string} username - GitHub username
+ * @param {string} reponame - Repository name
+ * @returns {Array} Array of framework info with upgrade status
+ */
+export const getRepositoryFrameworks = unstable_cache(async (username, reponame) => {
+    const packageJson = await getRepositoryPackageJson(username, reponame);
+    const detectedFrameworks = detectFrameworks(packageJson);
+    
+    const frameworksWithLatest = await Promise.all(
+        detectedFrameworks.map(async (framework) => {
+            try {
+                const latestRelease = await framework.getLatestRelease();
+                const hasUpgrade = framework.version && latestRelease.tagName && 
+                                   framework.version < latestRelease.tagName;
+                
+                return {
+                    ...framework,
+                    latestVersion: latestRelease.tagName,
+                    hasUpgrade,
+                    latestUpdatedAt: latestRelease.updatedAt
+                };
+            } catch (error) {
+                console.error(`Error getting latest release for ${framework.name}:`, error);
+                return {
+                    ...framework,
+                    latestVersion: null,
+                    hasUpgrade: false
+                };
+            }
+        })
+    );
+
+    return frameworksWithLatest;
+}, ['getRepositoryFrameworks'], { revalidate: HOURS_1 });
