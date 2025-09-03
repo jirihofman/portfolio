@@ -1,5 +1,5 @@
 import Image from 'next/image';
-import { getNextjsLatestRelease, getRepositoryPackageJson, checkAppJsxExistence } from '../data';
+import { getNextjsLatestRelease, getRepositoryPackageJson, checkAppJsxExistence, getRepositoryFrameworks } from '../data';
 import Popover from './popover';
 import { RiTailwindCssFill } from "react-icons/ri";
 import { SiReactbootstrap } from 'react-icons/si';
@@ -10,6 +10,9 @@ export const VercelInfo = async ({ info }) => {
 	const nextjsLatestRelease = await getNextjsLatestRelease();
 	const pJson = await getRepositoryPackageJson(info.owner.login, info.name);
 	const { isRouterPages, isRouterApp } = await checkAppJsxExistence(info.owner.login, info.name);
+	const repositoryFrameworks = await getRepositoryFrameworks(info.owner.login, info.name);
+	
+	// Legacy Next.js handling for backward compatibility with Vercel framework detection
 	const nextjsVersion = pJson?.dependencies?.next?.replace('^', '').replace('~', '');
 	const astroVersion = pJson?.dependencies?.astro?.replace('^', '').replace('~', '') || pJson?.devDependencies?.astro?.replace('^', '').replace('~', '');
 
@@ -43,7 +46,24 @@ export const VercelInfo = async ({ info }) => {
 
 	// Icons copied from https://vercel.com/design/brands
 
-	const upgradeIcon = info.framework === 'nextjs' && nextjsVersion && nextjsVersion < nextjsLatestRelease.tagName
+	// Upgrade icons for detected frameworks
+	const upgradeIcons = repositoryFrameworks
+		.filter(framework => framework.hasUpgrade)
+		.map((framework, index) => (
+			<Popover 
+				key={`upgrade-${framework.type}-${index}`}
+				button={<MdUpgrade color='white' size={'20'} className='-mb-1' />} 
+				content={
+					<span>
+						<p><strong>Upgrade available</strong></p>
+						{framework.name}: {framework.version} ➡️ {framework.latestVersion}
+					</span>
+				} 
+			/>
+		));
+
+	// Legacy upgrade icon for Next.js (for Vercel-detected projects)
+	const legacyUpgradeIcon = info.framework === 'nextjs' && nextjsVersion && nextjsVersion < nextjsLatestRelease.tagName
 		? <Popover button={<MdUpgrade color='white' size={'20'} className='-mb-1' />} content={<span><p><strong>Upgrade available</strong></p>Next.js: {nextjsVersion} ➡️ {nextjsLatestRelease.tagName}</span>} />
 		: null;
 
@@ -69,10 +89,17 @@ export const VercelInfo = async ({ info }) => {
 		} content={labelAstro + (astroVersion ? ` (v${astroVersion})` : '')} />;
 	}
 
+	// Render detected framework icons (for package.json based detection)
+	const detectedFrameworkIcons = repositoryFrameworks.map((framework, index) => 
+		renderFrameworkIcon(framework, index)
+	);
+
 	return (
 		<span className="text-zinc-500 text-xs flex items-center gap-1 me-2">
-			<span>{upgradeIcon}</span>
+			<span>{upgradeIcons}</span>
+			<span>{legacyUpgradeIcon}</span>
 			<span>{frameworkIcon}</span>
+			<span>{detectedFrameworkIcons}</span>
 			<span>{vercelIcon}</span>
 			<span>{turboIcon}</span>
 			<span>
@@ -81,6 +108,65 @@ export const VercelInfo = async ({ info }) => {
 				)) || null}
 			</span>
 		</span>
+	);
+}
+
+/**
+ * Renders a framework icon with popover
+ * @param {Object} framework - Framework object with type, name, version, etc.
+ * @param {number} index - Index for React key
+ * @returns {JSX.Element} Framework icon with popover
+ */
+function renderFrameworkIcon(framework, index) {
+	const iconMap = {
+		'nextjs': {
+			svg: <svg aria-label="Next.js logomark" data-theme="dark" height="16" role="img" viewBox="0 0 180 180" width="16">
+				<mask height="180" maskUnits="userSpaceOnUse" style={{ maskType: 'alpha' }} width="180" x="0" y="0"><circle cx="90" cy="90" fill="black" r="90"></circle></mask><g mask="url(#:R0:mask0_408_134)"><circle cx="90" cy="90" data-circle="true" fill="black" r="90" stroke="white" strokeWidth="6px"></circle><path d="M149.508 157.52L69.142 54H54V125.97H66.1136V69.3836L139.999 164.845C143.333 162.614 146.509 160.165 149.508 157.52Z" fill="url(#:R0:paint0_linear_408_134)"></path><rect fill="url(#:R0:paint1_linear_408_134)" height="72" width="12" x="115" y="54"></rect></g><defs><linearGradient gradientUnits="userSpaceOnUse" id=":R0:paint0_linear_408_134" x1="109" x2="144.5" y1="116.5" y2="160.5"><stop stopColor="white"></stop><stop offset="1" stopColor="white" stopOpacity="0"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" id=":R0:paint1_linear_408_134" x1="121" x2="120.799" y1="54" y2="106.875"><stop stopColor="white"></stop><stop offset="1" stopColor="white" stopOpacity="0"></stop></linearGradient></defs>
+			</svg>
+		},
+		'astro': {
+			image: "/astro-icon-light-gradient.svg",
+			alt: "Astro icon"
+		},
+		'nuxt': {
+			image: "/nuxt-icon.svg",
+			alt: "Nuxt icon"
+		},
+		'sveltekit': {
+			image: "/sveltekit-icon.svg",
+			alt: "SvelteKit icon"
+		},
+		'remix': {
+			image: "/remix-icon.svg",
+			alt: "Remix icon"
+		},
+		'gatsby': {
+			image: "/gatsby-icon.svg",
+			alt: "Gatsby icon"
+		}
+	};
+
+	const iconConfig = iconMap[framework.type];
+	if (!iconConfig) return null;
+
+	const content = `${framework.name}${framework.version ? ` (v${framework.version})` : ''}`;
+
+	const button = iconConfig.svg ? iconConfig.svg : (
+		<Image
+			height={16}
+			width={16}
+			style={{ width: '16px', height: '16px', verticalAlign: 'middle', display: 'inline-block', margin: 0, padding: 0, overflow: 'visible' }}
+			src={iconConfig.image}
+			alt={iconConfig.alt}
+		/>
+	);
+
+	return (
+		<Popover 
+			key={`framework-${framework.type}-${index}`}
+			button={button}
+			content={content}
+		/>
 	);
 }
 
