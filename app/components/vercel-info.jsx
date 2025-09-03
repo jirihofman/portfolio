@@ -103,7 +103,13 @@ export const VercelInfo = async ({ info }) => {
 	}
 
 	// Render detected framework icons (for package.json based detection)
-	const detectedFrameworkIcons = repositoryFrameworks.map((framework, index) => 
+	// Filter out frameworks already detected by Vercel to avoid duplicates
+	const filteredFrameworks = repositoryFrameworks.filter(framework => {
+		// Don't show framework icon if Vercel already detected this framework
+		return info.framework !== framework.type;
+	});
+	
+	const detectedFrameworkIcons = filteredFrameworks.map((framework, index) => 
 		renderFrameworkIcon(framework, index)
 	);
 
