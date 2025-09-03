@@ -7,10 +7,23 @@ import { MdUpgrade } from "react-icons/md";
 
 export const VercelInfo = async ({ info }) => {
 
-	const nextjsLatestRelease = await getNextjsLatestRelease();
-	const pJson = await getRepositoryPackageJson(info.owner.login, info.name);
-	const { isRouterPages, isRouterApp } = await checkAppJsxExistence(info.owner.login, info.name);
-	const repositoryFrameworks = await getRepositoryFrameworks(info.owner.login, info.name);
+	// Try to get real data, fall back gracefully if APIs fail
+	let nextjsLatestRelease, pJson, repositoryFrameworks = [], isRouterPages = false, isRouterApp = false;
+	
+	try {
+		nextjsLatestRelease = await getNextjsLatestRelease();
+		pJson = await getRepositoryPackageJson(info.owner.login, info.name);
+		const routerInfo = await checkAppJsxExistence(info.owner.login, info.name);
+		isRouterPages = routerInfo.isRouterPages;
+		isRouterApp = routerInfo.isRouterApp;
+		repositoryFrameworks = await getRepositoryFrameworks(info.owner.login, info.name);
+	} catch (error) {
+		console.log('API error, falling back gracefully:', error.message);
+		// Fallback to empty data - component will still show Vercel info
+		nextjsLatestRelease = {};
+		pJson = null;
+		repositoryFrameworks = [];
+	}
 	
 	// Legacy Next.js handling for backward compatibility with Vercel framework detection
 	const nextjsVersion = pJson?.dependencies?.next?.replace('^', '').replace('~', '');
@@ -175,13 +188,15 @@ function getUILibrary(pJson) {
 
 	const uiLibIcons = [];
 
+	if (!pJson) return uiLibIcons;
+
 	if (pJson?.devDependencies?.tailwindcss) {
 		uiLibIcons.push({icon: <RiTailwindCssFill />, text: 'Tailwind CSS'});
 	}
-	if (pJson?.dependencies['react-bootstrap']) {
+	if (pJson?.dependencies && pJson.dependencies['react-bootstrap']) {
 		uiLibIcons.push({icon: <SiReactbootstrap color='' />, text: 'React Bootstrap'});
 	}
-	if (pJson?.dependencies['@primer/react']) {
+	if (pJson?.dependencies && pJson.dependencies['@primer/react']) {
 		uiLibIcons.push({icon: <span className="text-2xl">🛠</span>, text: 'Primer'});
 	}
 
