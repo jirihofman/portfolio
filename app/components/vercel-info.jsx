@@ -60,8 +60,9 @@ export const VercelInfo = async ({ info }) => {
 	// Icons copied from https://vercel.com/design/brands
 
 	// Upgrade icons for detected frameworks
+	// Filter out frameworks already detected by Vercel to avoid duplicate upgrade icons
 	const upgradeIcons = repositoryFrameworks
-		.filter(framework => framework.hasUpgrade)
+		.filter(framework => framework.hasUpgrade && info.framework !== framework.type)
 		.map((framework, index) => (
 			<Popover 
 				key={`upgrade-${framework.type}-${index}`}
