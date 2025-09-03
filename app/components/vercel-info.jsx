@@ -60,9 +60,15 @@ export const VercelInfo = async ({ info }) => {
 	// Icons copied from https://vercel.com/design/brands
 
 	// Upgrade icons for detected frameworks
-	// Filter out frameworks already detected by Vercel to avoid duplicate upgrade icons
+	// Show upgrade icons for all frameworks that have upgrades available
+	// Exclude Next.js when Vercel detects it (to avoid duplicate with legacyUpgradeIcon)
 	const upgradeIcons = repositoryFrameworks
-		.filter(framework => framework.hasUpgrade && info.framework !== framework.type)
+		.filter(framework => {
+			if (!framework.hasUpgrade) return false;
+			// Skip Next.js if Vercel detected it (legacy upgrade icon will handle it)
+			if (framework.type === 'nextjs' && info.framework === 'nextjs') return false;
+			return true;
+		})
 		.map((framework, index) => (
 			<Popover 
 				key={`upgrade-${framework.type}-${index}`}
