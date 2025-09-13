@@ -132,11 +132,34 @@ export const getNextjsLatestRelease = unstable_cache(async () => {
     const nextjsLatest = await res.json();
 
     const result = {
-        tagName: nextjsLatest.data.repository.latestRelease.tagName.replace('v', ''),
+        tagName: cleanVersionTag(nextjsLatest.data.repository.latestRelease.tagName),
         updatedAt: nextjsLatest.data.repository.latestRelease.updatedAt,
     }
     return result;
 }, ['getNextjsLatestRelease'], { revalidate: HOURS_1 });
+
+/**
+ * Clean version from package.json dependency to extract just the semantic version
+ * @param {string} versionSpec - Version specification from package.json (e.g., "^5.13.5", "~4.10.0")
+ * @returns {string} Clean semantic version string
+ */
+function cleanDependencyVersion(versionSpec) {
+    // Remove version range specifiers like ^, ~, >=, etc.
+    return versionSpec.replace(/^[\^~>=<]+/, '');
+}
+
+/**
+ * Clean version tag from GitHub releases to extract just the semantic version
+ * @param {string} tagName - Raw tag name from GitHub release
+ * @returns {string} Clean semantic version string
+ */
+function cleanVersionTag(tagName) {
+    // Remove leading 'v'
+    let cleaned = tagName.replace(/^v/, '');
+    // Remove package name prefixes like "astro@", "next@", etc.
+    cleaned = cleaned.replace(/^[^@]*@/, '');
+    return cleaned;
+}
 
 /**
  * Generic function to get latest release for any framework from GitHub
@@ -173,7 +196,7 @@ export const getFrameworkLatestRelease = unstable_cache(async (repoName, owner, 
     }
 
     const result = {
-        tagName: latest.data.repository.latestRelease.tagName.replace('v', ''),
+        tagName: cleanVersionTag(latest.data.repository.latestRelease.tagName),
         updatedAt: latest.data.repository.latestRelease.updatedAt,
     }
     return result;
@@ -455,7 +478,7 @@ export function detectFrameworks(packageJson) {
     // Check for each framework
     for (const [dep, framework] of Object.entries(frameworkMap)) {
         if (dependencies[dep]) {
-            const version = dependencies[dep].replace(/[\^~]/, '');
+            const version = cleanDependencyVersion(dependencies[dep]);
             frameworks.push({
                 ...framework,
                 version,
