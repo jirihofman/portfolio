@@ -5,6 +5,35 @@ import { RiTailwindCssFill } from "react-icons/ri";
 import { SiReactbootstrap } from 'react-icons/si';
 import { MdUpgrade } from "react-icons/md";
 
+/**
+ * Compare semantic versions
+ * @param {string} version1 - First version to compare
+ * @param {string} version2 - Second version to compare
+ * @returns {number} -1 if version1 < version2, 0 if equal, 1 if version1 > version2
+ */
+function compareVersions(version1, version2) {
+    const parseVersion = (v) => {
+        // Remove any leading 'v' and split by dots
+        const cleaned = v.replace(/^v/, '').split('.');
+        return cleaned.map(num => parseInt(num, 10) || 0);
+    };
+    
+    const v1 = parseVersion(version1);
+    const v2 = parseVersion(version2);
+    
+    const maxLength = Math.max(v1.length, v2.length);
+    
+    for (let i = 0; i < maxLength; i++) {
+        const num1 = v1[i] || 0;
+        const num2 = v2[i] || 0;
+        
+        if (num1 < num2) return -1;
+        if (num1 > num2) return 1;
+    }
+    
+    return 0;
+}
+
 export const VercelInfo = async ({ info }) => {
 
 	// Try to get real data, fall back gracefully if APIs fail
@@ -83,7 +112,7 @@ export const VercelInfo = async ({ info }) => {
 		));
 
 	// Legacy upgrade icon for Next.js (for Vercel-detected projects)
-	const legacyUpgradeIcon = info.framework === 'nextjs' && nextjsVersion && nextjsVersion < nextjsLatestRelease.tagName
+	const legacyUpgradeIcon = info.framework === 'nextjs' && nextjsVersion && compareVersions(nextjsVersion, nextjsLatestRelease.tagName) < 0
 		? <Popover button={<MdUpgrade color='white' size={'20'} className='-mb-1' />} content={<span><p><strong>Upgrade available</strong></p>Next.js: {nextjsVersion} ➡️ {nextjsLatestRelease.tagName}</span>} />
 		: null;
 

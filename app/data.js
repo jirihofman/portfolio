@@ -132,11 +132,34 @@ export const getNextjsLatestRelease = unstable_cache(async () => {
     const nextjsLatest = await res.json();
 
     const result = {
-        tagName: nextjsLatest.data.repository.latestRelease.tagName.replace('v', ''),
+        tagName: cleanVersionTag(nextjsLatest.data.repository.latestRelease.tagName),
         updatedAt: nextjsLatest.data.repository.latestRelease.updatedAt,
     }
     return result;
 }, ['getNextjsLatestRelease'], { revalidate: HOURS_1 });
+
+/**
+ * Clean version from package.json dependency to extract just the semantic version
+ * @param {string} versionSpec - Version specification from package.json (e.g., "^5.13.5", "~4.10.0")
+ * @returns {string} Clean semantic version string
+ */
+function cleanDependencyVersion(versionSpec) {
+    // Remove version range specifiers like ^, ~, >=, etc.
+    return versionSpec.replace(/^[\^~>=<]+/, '');
+}
+
+/**
+ * Clean version tag from GitHub releases to extract just the semantic version
+ * @param {string} tagName - Raw tag name from GitHub release
+ * @returns {string} Clean semantic version string
+ */
+function cleanVersionTag(tagName) {
+    // Remove leading 'v'
+    let cleaned = tagName.replace(/^v/, '');
+    // Remove package name prefixes like "astro@", "next@", etc.
+    cleaned = cleaned.replace(/^[^@]*@/, '');
+    return cleaned;
+}
 
 /**
  * Generic function to get latest release for any framework from GitHub
@@ -173,7 +196,7 @@ export const getFrameworkLatestRelease = unstable_cache(async (repoName, owner, 
     }
 
     const result = {
-        tagName: latest.data.repository.latestRelease.tagName.replace('v', ''),
+        tagName: cleanVersionTag(latest.data.repository.latestRelease.tagName),
         updatedAt: latest.data.repository.latestRelease.updatedAt,
     }
     return result;
@@ -455,7 +478,7 @@ export function detectFrameworks(packageJson) {
     // Check for each framework
     for (const [dep, framework] of Object.entries(frameworkMap)) {
         if (dependencies[dep]) {
-            const version = dependencies[dep].replace(/[\^~]/, '');
+            const version = cleanDependencyVersion(dependencies[dep]);
             frameworks.push({
                 ...framework,
                 version,
@@ -465,6 +488,35 @@ export function detectFrameworks(packageJson) {
     }
 
     return frameworks;
+}
+
+/**
+ * Compare semantic versions
+ * @param {string} version1 - First version to compare
+ * @param {string} version2 - Second version to compare
+ * @returns {number} -1 if version1 < version2, 0 if equal, 1 if version1 > version2
+ */
+function compareVersions(version1, version2) {
+    const parseVersion = (v) => {
+        // Remove any leading 'v' and split by dots
+        const cleaned = v.replace(/^v/, '').split('.');
+        return cleaned.map(num => parseInt(num, 10) || 0);
+    };
+    
+    const v1 = parseVersion(version1);
+    const v2 = parseVersion(version2);
+    
+    const maxLength = Math.max(v1.length, v2.length);
+    
+    for (let i = 0; i < maxLength; i++) {
+        const num1 = v1[i] || 0;
+        const num2 = v2[i] || 0;
+        
+        if (num1 < num2) return -1;
+        if (num1 > num2) return 1;
+    }
+    
+    return 0;
 }
 
 /**
@@ -482,7 +534,7 @@ export const getRepositoryFrameworks = unstable_cache(async (username, reponame)
             try {
                 const latestRelease = await framework.getLatestRelease();
                 const hasUpgrade = framework.version && latestRelease.tagName && 
-                                   framework.version < latestRelease.tagName;
+                                   compareVersions(framework.version, latestRelease.tagName) < 0;
                 
                 return {
                     ...framework,
