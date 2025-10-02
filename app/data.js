@@ -373,59 +373,70 @@ export const checkAppJsxExistence = unstable_cache(async (repoOwner, repoName) =
 }, ['checkAppJsxExistence'], { revalidate: HOURS_24 });
 
 /**
- * Get the number of merged pull requests created by Copilot in the last 2 weeks.
- * Identifies Copilot PRs by:
- * - Author: github-actions[bot] or accounts containing "copilot"
- * - Labels: containing "copilot" or "github-copilot"
+ * Get the number of merged pull requests created by Copilot.
+ * Uses GitHub GraphQL API to search for PRs authored by copilot-swe-agent[bot]
+ * that involve the specified user in the specified repository.
  * @param {string} username GitHub username
  * @param {string} reponame repository name
- * @returns {number} Number of merged Copilot PRs in the last 2 weeks
+ * @returns {number} Number of merged Copilot PRs
  */
 export const getCopilotPRs = unstable_cache(async (username, reponame) => {
-    // Calculate date 2 weeks ago
-    const twoWeeksAgo = new Date();
-    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-    const since = twoWeeksAgo.toISOString();
+    console.log(`Fetching Copilot PRs for ${username}/${reponame}`);
+    console.time('getCopilotPRs');
 
     try {
-        // Get merged pull requests from the last 2 weeks
-        const res = await fetch(`https://api.github.com/repos/${username}/${reponame}/pulls?state=closed&sort=updated&direction=desc&since=${since}&per_page=100`, {
+        const query = `is:pr is:merged author:copilot-swe-agent[bot] involves:${username} repo:${username}/${reponame}`;
+        
+        const res = await fetch('https://api.github.com/graphql', {
+            method: 'POST',
             headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-            // Result is bigger than 2MB and cannot be cached by default.
-            // next: { revalidate: HOURS_12 }
+            next: { revalidate: HOURS_12 },
+            body: JSON.stringify({
+                query: `
+                    query CopilotAuthoredMergedPRs($q: String!, $after: String) {
+                        search(type: ISSUE, query: $q, first: 50, after: $after) {
+                            issueCount
+                            pageInfo {
+                                hasNextPage
+                                endCursor
+                            }
+                            nodes {
+                                ... on PullRequest {
+                                    title
+                                    repository { nameWithOwner }
+                                    createdAt
+                                    mergedAt
+                                    mergedBy { login }
+                                    author { login }
+                                    additions
+                                    deletions
+                                }
+                            }
+                        }
+                    }
+                `,
+                variables: { q: query }
+            }),
         });
 
         if (!res.ok) {
-            console.error(`Error fetching PRs for ${username}/${reponame}:`, res.status, res.statusText);
+            console.error(`GitHub GraphQL API returned an error for ${username}/${reponame}:`, res.status, res.statusText);
+            console.timeEnd('getCopilotPRs');
             return 0;
         }
 
-        const prs = await res.json();
+        const response = await res.json();
+        console.timeEnd('getCopilotPRs');
         
-        // Filter for merged PRs that were created by Copilot
-        const copilotPRs = prs.filter(pr => {
-            // Must be merged and within the last 2 weeks
-            if (!pr.merged_at) return false;
-            
-            const mergedDate = new Date(pr.merged_at);
-            if (mergedDate < twoWeeksAgo) return false;
+        if (response.errors) {
+            console.error(`GraphQL errors for ${username}/${reponame}:`, response.errors);
+            return 0;
+        }
 
-            // Check if author is Copilot-related
-            const authorLogin = pr.user?.login?.toLowerCase() || '';
-            const isCopilotAuthor = authorLogin.includes('copilot');
-
-            // Check if PR has Copilot-related labels
-            const hasCopilotLabel = pr.labels?.some(label => 
-                label.name.toLowerCase().includes('copilot') ||
-                label.name.toLowerCase().includes('github-copilot')
-            );
-
-            return isCopilotAuthor || hasCopilotLabel;
-        });
-
-        return copilotPRs.length;
+        return response.data?.search?.issueCount || 0;
     } catch (error) {
         console.error(`Error getting Copilot PRs for ${username}/${reponame}:`, error);
+        console.timeEnd('getCopilotPRs');
         return 0;
     }
 }, ['getCopilotPRs'], { revalidate: HOURS_12 });
