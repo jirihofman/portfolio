@@ -86,7 +86,7 @@ export const CopilotActivity = async ({ username }) => {
     return (
         <div>
             <span className="text-sm flex items-center justify-center gap-1">
-                I like working with Copilot <SiGithubcopilot className="w-4 h-4 inline" />
+                I like working with Copilot <SiGithubcopilot className="w-4 h-4 inline" /> - merged {copilotPRCount} Copilot PR{copilotPRCount === 1 ? '' : 's'}
             </span>
         </div>
     );
