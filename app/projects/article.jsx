@@ -34,7 +34,7 @@ export const Article = async ({ project }) => {
             {Intl.NumberFormat("en-US", { notation: "compact" }).format(alertCountTotal)}
         </span>;
 
-        copilotPRs = <span title={`Merged Copilot pull requests in the last 2 weeks: ${copilotPRCount}`} className="flex items-center gap-1">
+        copilotPRs = <span title={`Copilot PRs merged: ${copilotPRCount}`} className="flex items-center gap-1">
             <SiGithubcopilot className="w-4 h-4" />{" "}
             {Intl.NumberFormat("en-US", { notation: "compact" }).format(copilotPRCount)}
         </span>;
