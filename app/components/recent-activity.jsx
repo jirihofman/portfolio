@@ -1,4 +1,6 @@
-import { getRecentUserActivity } from "../data";
+import { getRecentUserActivity, getCopilotPRsAccountWide } from "../data";
+import { SiGithubcopilot } from 'react-icons/si';
+
 
 export const RecentActivity = async ({ username }) => {
 
@@ -70,6 +72,22 @@ export const RecentActivity = async ({ username }) => {
             {/* {JSON.stringify(Object.keys(recentUserActivity[4]).join(), null, 4)} */}
             {/* {JSON.stringify(recentUserActivity.filter(a => a.type === 'PullRequestEvent')[2], null, 4)} */}
             {/* {JSON.stringify(activitySummary, null, 4)} */}
+        </div>
+    );
+};
+
+export const CopilotActivity = async ({ username }) => {
+    const copilotPRCount = await getCopilotPRsAccountWide(username);
+
+    if (copilotPRCount === 0) {
+        return null;
+    }
+
+    return (
+        <div>
+            <span className="text-sm flex items-center justify-center gap-1">
+                I like working with Copilot <SiGithubcopilot className="w-4 h-4 inline" /> - merged {copilotPRCount} Copilot PR{copilotPRCount === 1 ? '' : 's'}
+            </span>
         </div>
     );
 };

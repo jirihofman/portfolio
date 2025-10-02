@@ -3,7 +3,7 @@ import Image from "next/image";
 import React, { Suspense } from "react";
 import data from "../data.json";
 import { ProfileOrganizations } from "./components/orgs";
-import { RecentActivity } from "./components/recent-activity";
+import { RecentActivity, CopilotActivity } from "./components/recent-activity";
 import { getUser } from "./data";
 import LoadingIndicator from "./components/loading-indicator";
 
@@ -92,6 +92,7 @@ const LandingComponent = async ({ searchParams: { customUsername } }) => {
 							<UserText promise={promise} />
 							<ProfileOrganizations username={username} />
 							<RecentActivity username={username} />
+							<CopilotActivity username={username} />
 						</div>
 					</Suspense>
 				</h2>
