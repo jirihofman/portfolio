@@ -1,4 +1,4 @@
-import { getRecentUserActivity, getCopilotPRsAccountWide } from "../data";
+import { getRecentUserActivity, getCopilotPRsAccountWide, getCopilotCoAuthoredPRs } from "../data";
 import { SiGithubcopilot } from 'react-icons/si';
 
 
@@ -78,8 +78,9 @@ export const RecentActivity = async ({ username }) => {
 
 export const CopilotActivity = async ({ username }) => {
     const copilotPRCount = await getCopilotPRsAccountWide(username);
+    const coAuthoredPRCount = await getCopilotCoAuthoredPRs(username);
 
-    if (copilotPRCount === 0) {
+    if (copilotPRCount === 0 && coAuthoredPRCount === 0) {
         return null;
     }
 
@@ -87,6 +88,7 @@ export const CopilotActivity = async ({ username }) => {
         <div>
             <span className="text-sm flex items-center justify-center gap-1">
                 I like working with Copilot <SiGithubcopilot className="w-4 h-4 inline" /> - merged {copilotPRCount} Copilot PR{copilotPRCount === 1 ? '' : 's'}
+                {coAuthoredPRCount > 0 && ` and ${coAuthoredPRCount} co-authored PR${coAuthoredPRCount === 1 ? '' : 's'}`}
             </span>
         </div>
     );
