@@ -494,6 +494,58 @@ export const getCopilotPRsAccountWide = unstable_cache(async (username) => {
 }, ['getCopilotPRsAccountWide'], { revalidate: HOURS_12 });
 
 /**
+ * Get the total number of merged pull requests where both the user and Copilot are commit authors.
+ * Uses GitHub GraphQL API to search for PRs where the user is involved and Copilot is a committer.
+ * @param {string} username GitHub username
+ * @returns {number} Number of merged PRs with co-authored commits (user + Copilot)
+ */
+export const getCopilotCoAuthoredPRs = unstable_cache(async (username) => {
+    console.log(`Fetching co-authored Copilot PRs for ${username}`);
+    console.time('getCopilotCoAuthoredPRs');
+
+    try {
+        // Search for merged PRs where the user is involved and Copilot is a committer
+        const query = `is:pr is:merged committer:copilot-swe-agent[bot] involves:${username}`;
+        
+        const res = await fetch('https://api.github.com/graphql', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+            next: { revalidate: HOURS_12 },
+            body: JSON.stringify({
+                query: `
+                    query CopilotCoAuthoredPRs($q: String!) {
+                        search(type: ISSUE, query: $q, first: 1) {
+                            issueCount
+                        }
+                    }
+                `,
+                variables: { q: query }
+            }),
+        });
+
+        if (!res.ok) {
+            console.error(`GitHub GraphQL API returned an error for ${username}:`, res.status, res.statusText);
+            console.timeEnd('getCopilotCoAuthoredPRs');
+            return 0;
+        }
+
+        const response = await res.json();
+        console.timeEnd('getCopilotCoAuthoredPRs');
+        
+        if (response.errors) {
+            console.error(`GraphQL errors for ${username}:`, response.errors);
+            return 0;
+        }
+
+        return response.data?.search?.issueCount || 0;
+    } catch (error) {
+        console.error(`Error getting co-authored Copilot PRs for ${username}:`, error);
+        console.timeEnd('getCopilotCoAuthoredPRs');
+        return 0;
+    }
+}, ['getCopilotCoAuthoredPRs'], { revalidate: HOURS_12 });
+
+/**
  * Detects frameworks from package.json dependencies and devDependencies
  * @param {Object} packageJson - Parsed package.json content
  * @returns {Array} Array of detected frameworks with their versions
