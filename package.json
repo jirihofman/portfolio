@@ -3,7 +3,7 @@
   "version": "1.5.0",
   "private": false,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
     "build": "npm run setup && next build",
     "build-only": "next build",
     "start": "next start",
@@ -13,9 +13,9 @@
     "@tailwindcss/postcss": "^4.1.13",
     "dotenv": "^17.2.2",
     "lodash": "^4.17.21",
-    "next": "15.5.4",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
+    "next": "16.0.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
     "react-icons": "^5.5.0"
   },
   "devDependencies": {

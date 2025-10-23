@@ -21,7 +21,7 @@ const nextConfig = {
                     tags: ['github', 'github-username'],
                 }
             }
-        ).then(res => res.json()).then(data => data.login) : 'testuser',
+        ).then(res => res.json()).then(data => data.login).catch(() => 'testuser') : 'testuser',
     },
     images: {
         remotePatterns: [

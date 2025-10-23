@@ -1,5 +1,4 @@
 import { Card } from "../components/card";
-// import { UserTimeline } from "../components/timeline";
 import { Article } from "./article";
 import data from "../../data.json";
 import chunk from 'lodash/chunk';
