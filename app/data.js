@@ -26,11 +26,11 @@ export async function getRepos(username) {
         headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
         next: { revalidate: HOURS_1 }
     });
+    console.timeEnd('getRepos');
     if (!res.ok) {
         console.error('GitHub API returned an error.', res.status, res.statusText);
         return [];
     }
-    console.timeEnd('getRepos');
     return res.json();
 }
 
@@ -53,12 +53,12 @@ export const getPinnedRepos = unstable_cache(async (username) => {
         headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
         body: JSON.stringify({ query: `{user(login: "${username}") {pinnedItems(first: 6, types: REPOSITORY) {nodes {... on Repository {name}}}}}` }),
     });
+    console.timeEnd('getPinnedRepos');
     if (!res.ok) {
         console.error('GitHub graphql returned an error.', res.status, res.statusText);
         return [];
     }
     const pinned = await res.json();
-    console.timeEnd('getPinnedRepos');
     const names = pinned.data.user.pinnedItems.nodes.map((node) => node.name);
     return names;
 }, ['getPinnedRepos'], { revalidate: HOURS_12 });
@@ -381,8 +381,9 @@ export const checkAppJsxExistence = unstable_cache(async (repoOwner, repoName) =
  * @returns {number} Number of merged Copilot PRs
  */
 export const getCopilotPRs = unstable_cache(async (username, reponame) => {
-    console.log(`Fetching Copilot PRs for ${username}/${reponame}`);
-    console.time('getCopilotPRs');
+    const repo = `${username}/${reponame}`;
+    console.log(`Fetching Copilot PRs for ${repo}`);
+    console.time('getCopilotPRs-' + repo);
 
     try {
         const query = `is:pr is:merged author:copilot-swe-agent[bot] involves:${username} repo:${username}/${reponame}`;
@@ -421,12 +422,12 @@ export const getCopilotPRs = unstable_cache(async (username, reponame) => {
 
         if (!res.ok) {
             console.error(`GitHub GraphQL API returned an error for ${username}/${reponame}:`, res.status, res.statusText);
-            console.timeEnd('getCopilotPRs');
+            console.timeEnd('getCopilotPRs-' + repo);
             return 0;
         }
 
         const response = await res.json();
-        console.timeEnd('getCopilotPRs');
+        console.timeEnd('getCopilotPRs-' + repo);
         
         if (response.errors) {
             console.error(`GraphQL errors for ${username}/${reponame}:`, response.errors);
@@ -436,7 +437,7 @@ export const getCopilotPRs = unstable_cache(async (username, reponame) => {
         return response.data?.search?.issueCount || 0;
     } catch (error) {
         console.error(`Error getting Copilot PRs for ${username}/${reponame}:`, error);
-        console.timeEnd('getCopilotPRs');
+        console.timeEnd('getCopilotPRs-' + repo);
         return 0;
     }
 }, ['getCopilotPRs'], { revalidate: HOURS_12 });
@@ -473,12 +474,10 @@ export const getCopilotPRsAccountWide = unstable_cache(async (username) => {
 
         if (!res.ok) {
             console.error(`GitHub GraphQL API returned an error for ${username}:`, res.status, res.statusText);
-            console.timeEnd('getCopilotPRsAccountWide');
             return 0;
         }
-
+   
         const response = await res.json();
-        console.timeEnd('getCopilotPRsAccountWide');
         
         if (response.errors) {
             console.error(`GraphQL errors for ${username}:`, response.errors);
@@ -488,8 +487,9 @@ export const getCopilotPRsAccountWide = unstable_cache(async (username) => {
         return response.data?.search?.issueCount || 0;
     } catch (error) {
         console.error(`Error getting account-wide Copilot PRs for ${username}:`, error);
-        console.timeEnd('getCopilotPRsAccountWide');
         return 0;
+    } finally {
+        console.timeEnd('getCopilotPRsAccountWide');
     }
 }, ['getCopilotPRsAccountWide'], { revalidate: HOURS_12 });
 
