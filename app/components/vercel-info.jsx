@@ -73,7 +73,8 @@ export const VercelInfo = async ({ info }) => {
 		}
 	}
 
-	let isUsingTurbopack = pJson?.scripts?.dev?.includes('--turbo') || false;
+	const isNext16 = nextjsVersion && compareVersions(nextjsVersion, '16.0.0') >= 0;
+	let isUsingTurbopack = isNext16 || pJson?.scripts?.dev?.includes('--turbo') || false;
 	const turboIcon = isUsingTurbopack
 		? <Popover button={
 			<Image 
