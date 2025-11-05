@@ -7,9 +7,10 @@ My personal portfolio website, built with [Next.js](https://nextjs.org/), [Tailw
 It is supposed to be used as a **template for other GitHub users' portfolios**. Data about user and projects are gathered via GitHub and Vercel API.
 
 ## Tech stack
-- **Framework**: [Next.js](https://nextjs.org/)
+- **Framework**: [Next.js](https://nextjs.org/) 16.0.1
 - **Deployment**: [Vercel](https://vercel.com)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com) 4.1.12
+- **UI**: [React](https://react.dev/) 19.2.0
 
 ## Project Information Features
 
@@ -50,15 +51,17 @@ cd portfolio
 ```
 
 ### Environment variables
-Create a `.env` file similar to [`.env.example`](https://github.com/jirihofman/profile/blob/main/.env.example).
+Create a `.env.local` file similar to [`.env.example`](https://github.com/jirihofman/portfolio/blob/main/.env.example).
 ```sh
-mv .env.example .env.local
+cp .env.example .env.local
 ```
-Add GitHub token into the new file.
+Add your tokens to the `.env.local` file:
 ```sh
 GH_TOKEN=YOUR_GH_TOKEN
-# If you have Vercel projects, create a token here https://vercel.com/account/tokens to get more info.
+# Optional: If you have Vercel projects, create a token here https://vercel.com/account/tokens to get more info.
 VC_TOKEN=YOUR_VERCEL_TOKEN
+# Optional: Set to false when using your own data
+IS_TEMPLATE=true
 ```
 
 Then install dependencies and run the development server:
@@ -68,7 +71,7 @@ npm install
 # Replace jirihofman's personal info with octocat's.
 npm run setup
 # Start hacking.
-npm dev
+npm run dev
 ```
 
 Edit `data.json` to put your personal information there.
@@ -76,13 +79,7 @@ Edit `data.json` to put your personal information there.
 
 ## Cloning / Forking
 
-Please remove all of my personal information in `data.json` before deploying your own version of this site by running `npm run setup`. Once you are happy with your `data.json`, set
-```sh
-# .env or .env.local
-
-IS_TEMPLATE=false
-```
-in your ENVs to prevent `npm build` from reverting `data.json` back to Octocat's data.
+Please remove all of my personal information in `data.json` before deploying your own version of this site by running `npm run setup`. Once you are happy with your `data.json`, set `IS_TEMPLATE=false` in your `.env.local` file to prevent `npm run build` from reverting `data.json` back to Octocat's data.
 
 ### To check before deploying
 - [ ] `data.json`: githubUsername, description, heroNames. Handled by `setup.mjs`.
