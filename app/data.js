@@ -22,7 +22,7 @@ export async function getUser(username) {
 export async function getRepos(username) {
     console.log('Fetching repos for', username);
     console.time('getRepos');
-    const res = await fetch('https://api.github.com/users/' + username + '/repos', {
+    const res = await fetch('https://api.github.com/users/' + username + '/repos?per_page=100', {
         headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
         next: { revalidate: HOURS_1 }
     });
@@ -31,7 +31,25 @@ export async function getRepos(username) {
         console.error('GitHub API returned an error.', res.status, res.statusText);
         return [];
     }
-    return res.json();
+    const response = await res.json();
+    
+    // Check pagination
+    if (res.headers.get('link')) {
+        let page = 2;
+        let nextLink = res.headers.get('link').split(',').find((link) => link.includes('rel="next"'));
+        while (nextLink) {
+            const nextRes = await fetch('https://api.github.com/users/' + username + '/repos?per_page=100&page=' + page, {
+                headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+                next: { revalidate: HOURS_1 }
+            });
+            const nextResponse = await nextRes.json();
+            response.push(...nextResponse);
+            nextLink = nextRes.headers.get('link')?.split(',').find((link) => link.includes('rel="next"'));
+            page++;
+        }
+    }
+    
+    return response;
 }
 
 export async function getSocialAccounts(username) {
