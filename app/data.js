@@ -108,21 +108,38 @@ export const getVercelProjects = async () => {
     }
     console.log('Fetching Vercel projects');
     console.time('getVercelProjects');
+
+    const baseUrl = 'https://api.vercel.com/v9/projects';
+    const limit = 100;
+    let nextCursor = null;
+    let url = `${baseUrl}?limit=${limit}`;
+    const allProjects = [];
+
     try {
-        const res = await fetch('https://api.vercel.com/v9/projects', {
-            headers: { Authorization: `Bearer ${process.env.VC_TOKEN}` },
-            next: { revalidate: HOURS_12 }
-        });
-        console.timeEnd('getVercelProjects');
-        // eg. expired token.
-        if (!res.ok) {
-            console.error('Vercel API returned an error.', res.status, res.statusText);
-            return { projects: [] };
-        }
-        return res.json();
+        do {
+            const res = await fetch(url, {
+                headers: { Authorization: `Bearer ${process.env.VC_TOKEN}` },
+                next: { revalidate: HOURS_12 }
+            });
+
+            if (!res.ok) {
+                console.error('Vercel API returned an error.', res.status, res.statusText);
+                return { projects: [] };
+            }
+
+            const data = await res.json();
+            allProjects.push(...(data.projects ?? []));
+            nextCursor = data.pagination?.next || null;
+            url = nextCursor ? `${baseUrl}?limit=${limit}&until=${nextCursor}` : '';
+        } while (nextCursor);
+
+        console.log('Vercel projects count:', allProjects.length);
+        return { projects: allProjects };
     } catch (error) {
         console.error('Vercel API fetch failed:', error);
         return { projects: [] };
+    } finally {
+        console.timeEnd('getVercelProjects');
     }
 };
 
@@ -131,7 +148,6 @@ export const getNextjsLatestRelease = unstable_cache(async () => {
     const res = await fetch('https://api.github.com/graphql', {
         method: 'POST',
         headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-        next: { revalidate: HOURS_12 },
         body: JSON.stringify({
             query: `{
                 repository(name: "next.js", owner: "vercel") {
@@ -190,7 +206,6 @@ export const getFrameworkLatestRelease = unstable_cache(async (repoName, owner, 
     const res = await fetch('https://api.github.com/graphql', {
         method: 'POST',
         headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-        next: { revalidate: HOURS_12 },
         body: JSON.stringify({
             query: `{
                 repository(name: "${repoName}", owner: "${owner}") {
@@ -477,7 +492,7 @@ export const getCopilotPRsAccountWide = unstable_cache(async (username) => {
         const res = await fetch('https://api.github.com/graphql', {
             method: 'POST',
             headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-            next: { revalidate: HOURS_12 },
+            // next: { revalidate: HOURS_12 },
             body: JSON.stringify({
                 query: `
                     query CopilotAuthoredMergedPRsAccountWide($q: String!) {
