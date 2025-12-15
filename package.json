@@ -10,7 +10,7 @@
     "setup": "node ./lib/setup.mjs"
   },
   "dependencies": {
-    "@tailwindcss/postcss": "^4.1.17",
+    "@tailwindcss/postcss": "^4.1.18",
     "dotenv": "^17.2.3",
     "lodash": "^4.17.21",
     "next": "16.0.10",
@@ -20,7 +20,7 @@
   },
   "devDependencies": {
     "@tailwindcss/line-clamp": "^0.4.4",
-    "autoprefixer": "^10.4.21",
+    "autoprefixer": "^10.4.23",
     "postcss": "^8.5.6",
     "postcss-nesting": "^13.0.2",
     "tailwindcss": "^4.1.12"
