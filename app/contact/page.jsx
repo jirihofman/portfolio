@@ -8,9 +8,6 @@ import { Card } from "../components/card";
 import data from "../../data.json";
 import { getUser, getSocialAccounts } from "../data";
 
-// TODO: make it edge once Turbopack supports it.
-export const runtime = 'nodejs';
-
 export default async function Contacts(props) {
     const searchParams = await props.searchParams;
 
