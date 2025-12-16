@@ -14,18 +14,16 @@ export const getUser = unstable_cache(async (username) => {
     console.time('getUser');
     const res = await fetch('https://api.github.com/users/' + username, {
         headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-        next: { revalidate }
     });
     console.timeEnd('getUser');
     return res.json();
-}, ['getUser'], { revalidate });
+}, (username) => ['getUser', username], { revalidate });
 
 export const getRepos = unstable_cache(async (username) => {
     console.log('Fetching repos for', username);
     console.time('getRepos');
     const res = await fetch('https://api.github.com/users/' + username + '/repos?per_page=100', {
         headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-        next: { revalidate: HOURS_1 }
     });
     console.timeEnd('getRepos');
     if (!res.ok) {
@@ -41,7 +39,6 @@ export const getRepos = unstable_cache(async (username) => {
         while (nextLink) {
             const nextRes = await fetch('https://api.github.com/users/' + username + '/repos?per_page=100&page=' + page, {
                 headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-                next: { revalidate: HOURS_1 }
             });
             const nextResponse = await nextRes.json();
             response.push(...nextResponse);
@@ -51,18 +48,17 @@ export const getRepos = unstable_cache(async (username) => {
     }
     
     return response;
-}, ['getRepos'], { revalidate: HOURS_1 });
+}, (username) => ['getRepos', username], { revalidate: HOURS_1 });
 
 export const getSocialAccounts = unstable_cache(async (username) => {
     console.log('Fetching social accounts for', username);
     console.time('getSocialAccounts');
     const res = await fetch('https://api.github.com/users/' + username + '/social_accounts', {
         headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-        next: { revalidate: HOURS_12 }
     });
     console.timeEnd('getSocialAccounts');
     return res.json();
-}, ['getSocialAccounts'], { revalidate: HOURS_12 });
+}, (username) => ['getSocialAccounts', username], { revalidate: HOURS_12 });
 
 export const getPinnedRepos = unstable_cache(async (username) => {
     console.log('Fetching pinned repos for', username);
@@ -120,7 +116,6 @@ export const getVercelProjects = unstable_cache(async () => {
         do {
             const res = await fetch(url, {
                 headers: { Authorization: `Bearer ${process.env.VC_TOKEN}` },
-                next: { revalidate: HOURS_12 }
             });
 
             if (!res.ok) {
@@ -274,7 +269,6 @@ export const getRecentUserActivity = unstable_cache(async (username) => {
     console.time('getRecentUserActivity');
     const res = await fetch('https://api.github.com/users/' + username + '/events?per_page=100', {
         headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-        next: { revalidate: MINUTES_5 }
     });
     const response = await res.json();
     // Check pagination
@@ -284,11 +278,10 @@ export const getRecentUserActivity = unstable_cache(async (username) => {
         while (nextLink) {
             const nextRes = await fetch('https://api.github.com/users/' + username + '/events?per_page=100&page=' + page, {
                 headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-                next: { revalidate: MINUTES_5 }
             });
             const nextResponse = await nextRes.json();
             response.push(...nextResponse);
-            nextLink = nextRes.headers.get('link').split(',').find((link) => link.includes('rel="next"'));
+            nextLink = nextRes.headers.get('link')?.split(',').find((link) => link.includes('rel="next"'));
             page++;
         };
     }
@@ -299,12 +292,11 @@ export const getRecentUserActivity = unstable_cache(async (username) => {
     }
     console.timeEnd('getRecentUserActivity');
     return response;
-}, ['getRecentUserActivity'], { revalidate: MINUTES_5 });
+}, (username) => ['getRecentUserActivity', username], { revalidate: MINUTES_5 });
 
 export const getTrafficPageViews = unstable_cache(async (username, reponame) => {
     const res = await fetch('https://api.github.com/repos/' + username + '/' + reponame + '/traffic/views', {
         headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-        next: { revalidate: HOURS_1 }
     });
     const response = await res.json();
 
@@ -316,7 +308,7 @@ export const getTrafficPageViews = unstable_cache(async (username, reponame) => 
     const todayUniques = response.views?.find((day) => day.timestamp.startsWith(today))?.uniques || 0;
 
     return { sumUniques, todayUniques };
-}, ['getTrafficPageViews'], { revalidate: HOURS_1 });
+}, (username, reponame) => ['getTrafficPageViews', username, reponame], { revalidate: HOURS_1 });
 
 export const getDependabotAlerts = unstable_cache(async (username, reponame) => {
     const res = await fetch('https://api.github.com/repos/' + username + '/' + reponame + '/dependabot/alerts', {
