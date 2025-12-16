@@ -8,7 +8,7 @@ const HOURS_12 = 60 * 60 * 12;
 const HOURS_24 = 60 * 60 * 24;
 
 // TODO: Implement option to switch between info for authenticated user and other users.
-export async function getUser(username) {
+export const getUser = unstable_cache(async (username) => {
     console.log('Fetching user data for', username);
     console.time('getUser');
     const res = await fetch('https://api.github.com/users/' + username, {
@@ -17,9 +17,9 @@ export async function getUser(username) {
     });
     console.timeEnd('getUser');
     return res.json();
-}
+}, ['getUser'], { revalidate });
 
-export async function getRepos(username) {
+export const getRepos = unstable_cache(async (username) => {
     console.log('Fetching repos for', username);
     console.time('getRepos');
     const res = await fetch('https://api.github.com/users/' + username + '/repos?per_page=100', {
@@ -50,9 +50,9 @@ export async function getRepos(username) {
     }
     
     return response;
-}
+}, ['getRepos'], { revalidate: HOURS_1 });
 
-export async function getSocialAccounts(username) {
+export const getSocialAccounts = unstable_cache(async (username) => {
     console.log('Fetching social accounts for', username);
     console.time('getSocialAccounts');
     const res = await fetch('https://api.github.com/users/' + username + '/social_accounts', {
@@ -61,7 +61,7 @@ export async function getSocialAccounts(username) {
     });
     console.timeEnd('getSocialAccounts');
     return res.json();
-}
+}, ['getSocialAccounts'], { revalidate: HOURS_12 });
 
 export const getPinnedRepos = unstable_cache(async (username) => {
     console.log('Fetching pinned repos for', username);
@@ -101,7 +101,7 @@ export const getUserOrganizations = unstable_cache(async (username) => {
     return orgs;
 }, ['getUserOrganizations'], { revalidate: HOURS_12 });
 
-export const getVercelProjects = async () => {
+export const getVercelProjects = unstable_cache(async () => {
     if (!process.env.VC_TOKEN) {
         console.log('No Vercel token found - no projects will be shown.');
         return { projects: [] };
@@ -141,7 +141,7 @@ export const getVercelProjects = async () => {
     } finally {
         console.timeEnd('getVercelProjects');
     }
-};
+}, ['getVercelProjects'], { revalidate: HOURS_12 });
 
 /** Cache revalidated every 12 hours. */
 export const getNextjsLatestRelease = unstable_cache(async () => {
@@ -268,7 +268,7 @@ export const getRepositoryPackageJson = unstable_cache(async (username, reponame
     }
 }, ['getRepositoryPackageJson'], { revalidate: HOURS_1 });
 
-export const getRecentUserActivity = async (username) => {
+export const getRecentUserActivity = unstable_cache(async (username) => {
     console.log('Fetching recent activity for', username);
     console.time('getRecentUserActivity');
     const res = await fetch('https://api.github.com/users/' + username + '/events?per_page=100', {
@@ -298,9 +298,9 @@ export const getRecentUserActivity = async (username) => {
     }
     console.timeEnd('getRecentUserActivity');
     return response;
-};
+}, ['getRecentUserActivity'], { revalidate: MINUTES_5 });
 
-export const getTrafficPageViews = async (username, reponame) => {
+export const getTrafficPageViews = unstable_cache(async (username, reponame) => {
     const res = await fetch('https://api.github.com/repos/' + username + '/' + reponame + '/traffic/views', {
         headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
         next: { revalidate: HOURS_1 }
@@ -315,7 +315,7 @@ export const getTrafficPageViews = async (username, reponame) => {
     const todayUniques = response.views?.find((day) => day.timestamp.startsWith(today))?.uniques || 0;
 
     return { sumUniques, todayUniques };
-};
+}, ['getTrafficPageViews'], { revalidate: HOURS_1 });
 
 export const getDependabotAlerts = unstable_cache(async (username, reponame) => {
     const res = await fetch('https://api.github.com/repos/' + username + '/' + reponame + '/dependabot/alerts', {

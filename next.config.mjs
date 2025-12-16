@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     pageExtensions: ["js", "jsx", "ts", "tsx", "md", "mdx"],
+    cacheComponents: true,
     experimental: {
         // Caching all page.jsx files on the client for 5 minutes.
         // Resulting in immediate navigation and no loading time.
