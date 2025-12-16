@@ -1,7 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     pageExtensions: ["js", "jsx", "ts", "tsx", "md", "mdx"],
-    cacheComponents: true,
+    // Note: cacheComponents: true is not compatible with this application
+    // because we use searchParams for dynamic user selection throughout the app.
+    // The unstable_cache wrappers in app/data.js provide caching benefits instead.
     experimental: {
         // Caching all page.jsx files on the client for 5 minutes.
         // Resulting in immediate navigation and no loading time.

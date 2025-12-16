@@ -1,4 +1,5 @@
-// Note: This API will be replaced by use cache when it reaches stability.
+// Using unstable_cache for data fetching functions to improve performance.
+// These wrappers provide automatic caching with configurable revalidation times.
 import { unstable_cache } from 'next/cache';
 
 const revalidate = 60;
