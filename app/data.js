@@ -259,7 +259,7 @@ export const getRepositoryPackageJson = unstable_cache(async (username, reponame
         const packageJson = JSON.parse(response.data.repository.object.text);
         return packageJson;
     } catch (error) {
-        console.error('Error parsing package.json', username, reponame, error);
+        // Not all repositories have a package.json
         return null;
     }
 }, ['getRepositoryPackageJson'], { revalidate: HOURS_1 });
