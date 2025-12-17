@@ -400,7 +400,7 @@ export const checkAppJsxExistence = unstable_cache(async (repoOwner, repoName) =
 
 /**
  * Get the number of merged pull requests created by Copilot.
- * Uses GitHub GraphQL API to search for PRs authored by copilot-swe-agent[bot]
+ * Uses GitHub GraphQL API to search for merged PRs
  * that involve the specified user in the specified repository.
  * @param {string} username GitHub username
  * @param {string} reponame repository name
@@ -412,7 +412,7 @@ export const getCopilotPRs = unstable_cache(async (username, reponame) => {
     console.time('getCopilotPRs-' + repo);
 
     try {
-        const query = `is:pr is:merged author:copilot-swe-agent[bot] involves:${username} repo:${username}/${reponame}`;
+        const query = `is:pr is:merged involves:${username} repo:${username}/${reponame}`;
         
         const res = await fetch('https://api.github.com/graphql', {
             method: 'POST',
@@ -470,7 +470,7 @@ export const getCopilotPRs = unstable_cache(async (username, reponame) => {
 
 /**
  * Get the total number of merged pull requests created by Copilot across all repositories for a user.
- * Uses GitHub GraphQL API to search for PRs authored by copilot-swe-agent[bot]
+ * Uses GitHub GraphQL API to search for merged PRs
  * that involve the specified user (account-wide, not repository-specific).
  * @param {string} username GitHub username
  * @returns {number} Number of merged Copilot PRs across all repositories
@@ -480,7 +480,7 @@ export const getCopilotPRsAccountWide = unstable_cache(async (username) => {
     console.time('getCopilotPRsAccountWide');
 
     try {
-        const query = `is:pr is:merged author:copilot-swe-agent[bot] involves:${username}`;
+        const query = `is:pr is:merged involves:${username}`;
         
         const res = await fetch('https://api.github.com/graphql', {
             method: 'POST',
