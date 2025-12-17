@@ -399,12 +399,12 @@ export const checkAppJsxExistence = unstable_cache(async (repoOwner, repoName) =
 }, ['checkAppJsxExistence'], { revalidate: HOURS_24 });
 
 /**
- * Get the number of merged pull requests created by Copilot.
+ * Get the number of merged pull requests involving the user in a repository.
  * Uses GitHub GraphQL API to search for merged PRs
  * that involve the specified user in the specified repository.
  * @param {string} username GitHub username
  * @param {string} reponame repository name
- * @returns {number} Number of merged Copilot PRs
+ * @returns {number} Number of merged PRs involving the user
  */
 export const getCopilotPRs = unstable_cache(async (username, reponame) => {
     const repo = `${username}/${reponame}`;
@@ -469,11 +469,11 @@ export const getCopilotPRs = unstable_cache(async (username, reponame) => {
 }, ['getCopilotPRs'], { revalidate: HOURS_12 });
 
 /**
- * Get the total number of merged pull requests created by Copilot across all repositories for a user.
+ * Get the total number of merged pull requests involving the user across all repositories.
  * Uses GitHub GraphQL API to search for merged PRs
  * that involve the specified user (account-wide, not repository-specific).
  * @param {string} username GitHub username
- * @returns {number} Number of merged Copilot PRs across all repositories
+ * @returns {number} Number of merged PRs involving the user across all repositories
  */
 export const getCopilotPRsAccountWide = unstable_cache(async (username) => {
     console.log(`Fetching account-wide Copilot PRs for ${username}`);
