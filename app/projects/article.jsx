@@ -34,10 +34,16 @@ export const Article = async ({ project }) => {
             {Intl.NumberFormat("en-US", { notation: "compact" }).format(alertCountTotal)}
         </span>;
 
-        copilotPRs = <span title={`Copilot PRs merged: ${copilotPRCount}`} className="flex items-center gap-1">
+        copilotPRs = <Link 
+            href={`https://github.com/${project.owner.login}/${project.name}/pulls?q=is%3Amerged+author%3A%40Copilot+`}
+            title={`Copilot PRs merged: ${copilotPRCount}`} 
+            className="flex items-center gap-1 hover:text-blue-500"
+            target="_blank"
+            rel="noopener noreferrer"
+        >
             <SiGithubcopilot className="w-4 h-4" />{" "}
             {Intl.NumberFormat("en-US", { notation: "compact" }).format(copilotPRCount)}
-        </span>;
+        </Link>;
     }
 
     return (
