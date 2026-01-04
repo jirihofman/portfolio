@@ -7,10 +7,10 @@ My personal portfolio website, built with [Next.js](https://nextjs.org/), [Tailw
 It is supposed to be used as a **template for other GitHub users' portfolios**. Data about user and projects are gathered via GitHub and Vercel API.
 
 ## Tech stack
-- **Framework**: [Next.js](https://nextjs.org/) 16.0.1
+- **Framework**: [Next.js](https://nextjs.org/) 16.1.1
 - **Deployment**: [Vercel](https://vercel.com)
 - **Styling**: [Tailwind CSS](https://tailwindcss.com) 4.1.12
-- **UI**: [React](https://react.dev/) 19.2.0
+- **UI**: [React](https://react.dev/) 19.2.3
 
 ## Project Information Features
 
@@ -42,8 +42,8 @@ The portfolio automatically displays comprehensive information for each reposito
 - **GraphQL queries**: Pinned repositories and organization data
 
 All data is cached and refreshed automatically to ensure good performance while providing up-to-date information.
-## Running Locally
 
+## Running Locally
 
 ```sh
 git clone https://github.com/jirihofman/portfolio.git
@@ -57,12 +57,17 @@ cp .env.example .env.local
 ```
 Add your tokens to the `.env.local` file:
 ```sh
+# Required: GitHub Personal Access Token (needed for build-time API calls to fetch user data)
 GH_TOKEN=YOUR_GH_TOKEN
-# Optional: If you have Vercel projects, create a token here https://vercel.com/account/tokens to get more info.
+
+# Optional: Vercel token to display deployment information
 VC_TOKEN=YOUR_VERCEL_TOKEN
-# Optional: Set to false when using your own data
+
+# Optional: Set to false when using your own data in data.json
 IS_TEMPLATE=true
 ```
+
+**Note:** `GH_TOKEN` is **required** for the application to build and run. The build process makes GitHub API calls to fetch your username and repository data. Without a valid token, the build will fail.
 
 Then install dependencies and run the development server:
 ```sh
@@ -76,13 +81,14 @@ npm run dev
 
 Edit `data.json` to put your personal information there.
 
-
 ## Cloning / Forking
 
-Please remove all of my personal information in `data.json` before deploying your own version of this site by running `npm run setup`. Once you are happy with your `data.json`, set `IS_TEMPLATE=false` in your `.env.local` file to prevent `npm run build` from reverting `data.json` back to Octocat's data.
+When using this template for your own portfolio:
 
-### To check before deploying
-- [ ] `data.json`: githubUsername, description, heroNames. Handled by `setup.mjs`.
-- [ ] `README.md`: link at the top
-- [ ] `app/layout.jsx`: metadata - title, description, favicon. Handled by `setup.mjs`.
-- [ ] `public/favicon.ico`. Handled by `setup.mjs`.
+1. Run `npm run setup` to replace the default personal information in `data.json` with template data
+2. Edit `data.json` with your own information (githubUsername, description, heroNames)
+3. Set `IS_TEMPLATE=false` in your `.env.local` file to prevent future builds from reverting your changes
+4. Update the following files with your information:
+   - [ ] `README.md`: Update the link at the top
+   - [ ] `app/layout.jsx`: Update metadata (title, description, favicon) - handled by `setup.mjs`
+   - [ ] `public/favicon.ico`: Add your own favicon - handled by `setup.mjs`
