@@ -2,6 +2,23 @@
 
 This prompt instructs an AI agent to remove all template functionality from this portfolio repository after a user has cloned or forked it for their own use.
 
+## How to Use This Prompt
+
+**Option 1: GitHub Copilot Workspace**
+1. Open GitHub Copilot Workspace
+2. Copy the entire contents of this file
+3. Paste it into the Copilot Workspace chat
+4. Review and approve the suggested changes
+
+**Option 2: GitHub Copilot Chat / Other AI Agents**
+1. Open the AI agent in your IDE or terminal
+2. Share this file with the AI agent or copy its contents
+3. Ask the agent to: "Please follow the instructions in this file to remove all template functionality from this repository"
+4. Review the changes before committing
+
+**Option 3: Manual**
+Follow the detailed instructions below to manually make each change.
+
 ## Objective
 
 Remove all references to the original author (jirihofman), eliminate the template reversion logic, and prepare the repository to be a clean personal portfolio without template-specific features.
@@ -94,3 +111,64 @@ After making changes:
 - Do NOT remove the ability to use the portfolio - only remove the template reversion mechanism
 - Preserve all attribution comments and credits to original authors (chronark, leerob) where they exist
 - Keep the GitHub token requirement and Vercel integration - these are core features, not template functionality
+
+## Example Changes
+
+### Before: lib/setup.mjs
+```javascript
+if (process.env.IS_TEMPLATE === 'false') {
+    // This means it's not the template, it's my legit site
+    return;
+}
+if (dataJson.githubUsername !== 'jirihofman') {
+    // This means it's not the template, it's someone's legit site
+    return;
+}
+console.log('⚠️  This is still a template...');
+```
+
+### After: File Deleted
+The entire `lib/setup.mjs` file should be deleted, and references to it removed from `package.json`.
+
+---
+
+### Before: README.md
+```markdown
+# 🔗 [portfolio-jirihofman.vercel.app](https://portfolio-jirihofman.vercel.app)
+
+It is supposed to be used as a **template for other GitHub users' portfolios**.
+
+git clone https://github.com/jirihofman/portfolio.git
+
+# Replace jirihofman's personal info with octocat's.
+npm run setup
+
+Set `IS_TEMPLATE=false` in your `.env.local` file
+```
+
+### After: README.md
+```markdown
+# GitHub Portfolio
+
+A Next.js portfolio website that automatically displays GitHub repository information.
+
+git clone https://github.com/your-username/portfolio.git
+
+# Install dependencies
+npm install
+```
+
+---
+
+### Before: .env.example
+```
+GH_TOKEN=
+VC_TOKEN=
+IS_TEMPLATE=true
+```
+
+### After: .env.example
+```
+GH_TOKEN=
+VC_TOKEN=
+```
