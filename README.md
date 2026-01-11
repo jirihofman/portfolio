@@ -92,3 +92,27 @@ When using this template for your own portfolio:
    - [ ] `README.md`: Update the link at the top
    - [ ] `app/layout.jsx`: Update metadata (title, description, favicon) - handled by `setup.mjs`
    - [ ] `public/favicon.ico`: Add your own favicon - handled by `setup.mjs`
+
+### Removing Template Functionality
+
+After cloning or forking this repository, you may want to remove all template-specific functionality and references to the original author. This will prepare the repository to be your own personal portfolio without any template reversion logic.
+
+**Using GitHub Copilot or AI Agent:**
+
+If you have access to GitHub Copilot Workspace or another AI coding agent, you can use the removal prompt:
+
+```bash
+# Copy the prompt content and provide it to your AI agent
+cat .github/prompts/remove-template.md
+```
+
+The AI agent will:
+- Remove template reversion logic from `lib/setup.mjs`
+- Remove all references to jirihofman
+- Eliminate IS_TEMPLATE environment variable usage
+- Clean up README to focus on personal portfolio use
+- Prepare the repository for your personal use without template features
+
+**Manual Removal:**
+
+If you prefer to remove template functionality manually, follow the detailed instructions in `.github/prompts/remove-template.md`.
