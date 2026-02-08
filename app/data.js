@@ -302,10 +302,10 @@ export const getTrafficPageViews = unstable_cache(async (username, reponame) => 
 
     const sumUniques = response.uniques || 0;
 
-    // Today date in format YYYY-MM-DD.
-    const today = new Date().toISOString().slice(0, 10);
-    // Last day with at least one view.
-    const todayUniques = response.views?.find((day) => day.timestamp.startsWith(today))?.uniques || 0;
+    // Yesterday date in format YYYY-MM-DD (GitHub API has 24-hour delay).
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    // Last day with at least one view (most recent complete day).
+    const todayUniques = response.views?.find((day) => day.timestamp.startsWith(yesterday))?.uniques || 0;
 
     return { sumUniques, todayUniques };
 }, (username, reponame) => ['getTrafficPageViews', username, reponame], { revalidate: HOURS_1 });

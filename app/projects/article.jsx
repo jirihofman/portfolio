@@ -20,7 +20,7 @@ export const Article = async ({ project }) => {
             getDependabotAlerts(project.owner.login, project.name),
             getCopilotPRs(project.owner.login, project.name)
         ]);
-        views = <span title="Unique repository visitors: Last 14 days / Today." className="flex items-center gap-1">
+        views = <span title="Unique repository visitors: Last 14 days / Yesterday (GitHub API has 24-hour delay)." className="flex items-center gap-1">
             <GoEye className="w-4 h-4" />{" "}
             {Intl.NumberFormat("en-US", { notation: "compact" }).format(sumUniques)}/{Intl.NumberFormat("en-US", { notation: "compact" }).format(todayUniques)}
         </span>;
