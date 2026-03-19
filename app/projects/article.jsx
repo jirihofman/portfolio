@@ -8,30 +8,34 @@ export const Article = ({ project }) => {
 
     const appLink = project.homepage ? project.homepage : project.html_url;
     const { ownerMetrics } = project;
+    const viewsData = ownerMetrics?.views;
+    const alertsData = ownerMetrics?.openAlertsBySeverity;
+    const copilotPRCount = ownerMetrics?.copilotPRCount;
 
     /** Repository visitors info. */
     let views = <span title="Can't get traffic data for someone else's repo." className="flex items-center gap-1"><GoEyeClosed className="w-4 h-4" /></span>;
     let alerts = <span title="Can't get alerts data for someone else's repo."><GoDependabot className="w-4 h-4" /></span>;
     let copilotPRs = <span title="Can't get Copilot data for someone else's repo."><SiGithubcopilot className="w-4 h-4" /></span>;
-    if (ownerMetrics?.isOwnerRepo) {
-        const { todayUniques = 0, sumUniques = 0 } = ownerMetrics.views || {};
-        const openAlertsBySeverity = ownerMetrics.openAlertsBySeverity || {};
-        const copilotPRCount = ownerMetrics.copilotPRCount || 0;
-
+    if (viewsData) {
+        const { todayUniques = 0, sumUniques = 0 } = viewsData;
         views = <span title="Unique repository visitors: Last 14 days / Yesterday (GitHub API has 24-hour delay)." className="flex items-center gap-1">
             <GoEye className="w-4 h-4" />{" "}
             {Intl.NumberFormat("en-US", { notation: "compact" }).format(sumUniques)}/{Intl.NumberFormat("en-US", { notation: "compact" }).format(todayUniques)}
         </span>;
+    }
 
-        const alertColor = openAlertsBySeverity.critical > 0 ? "red" : openAlertsBySeverity.high > 0 ? "orange" : openAlertsBySeverity.medium > 0 ? "yellow" : openAlertsBySeverity.low > 0 ? "blue" : "gray";
-        const alertCountTotal = (openAlertsBySeverity.critical || 0) + (openAlertsBySeverity.high || 0) + (openAlertsBySeverity.medium || 0) + (openAlertsBySeverity.low || 0);
-        const alertTitle = alertCountTotal > 0 ? `Open Dependabot alerts: ` + (JSON.stringify(openAlertsBySeverity)) : "No open Dependabot alerts.";
+    if (alertsData) {
+        const alertColor = alertsData.critical > 0 ? "red" : alertsData.high > 0 ? "orange" : alertsData.medium > 0 ? "yellow" : alertsData.low > 0 ? "blue" : "gray";
+        const alertCountTotal = (alertsData.critical || 0) + (alertsData.high || 0) + (alertsData.medium || 0) + (alertsData.low || 0);
+        const alertTitle = alertCountTotal > 0 ? `Open Dependabot alerts: ` + (JSON.stringify(alertsData)) : "No open Dependabot alerts.";
 
         alerts = <span title={alertTitle} className="flex items-center gap-1">
             <GoDependabot className="w-4 h-4 danger" fill={alertColor} />{" "}            
             {Intl.NumberFormat("en-US", { notation: "compact" }).format(alertCountTotal)}
         </span>;
+    }
 
+    if (copilotPRCount !== null && copilotPRCount !== undefined) {
         copilotPRs = <Link 
             href={`https://github.com/${project.owner.login}/${project.name}/pulls?q=is%3Amerged+author%3A%40Copilot+`}
             title={`Copilot PRs merged: ${copilotPRCount}`} 

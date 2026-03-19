@@ -475,33 +475,38 @@ export const getRecentUserActivity = unstable_cache(async (username) => {
 }, (username) => ['getRecentUserActivity', username], { revalidate: MINUTES_5 });
 
 export const getTrafficPageViews = unstable_cache(async (username, reponame) => {
-    const response = await fetchGitHubJson(`${GITHUB_API_URL}/repos/${username}/${reponame}/traffic/views`, {
+    const response = await fetchGitHubResponse(`${GITHUB_API_URL}/repos/${username}/${reponame}/traffic/views`, {
         context: `traffic views for ${username}/${reponame}`,
-        fallback: {},
+        fallback: null,
     });
 
-    const sumUniques = response.uniques || 0;
+    if (!response.ok || !response.data) {
+        return null;
+    }
+
+    const sumUniques = response.data.uniques || 0;
 
     // Yesterday date in format YYYY-MM-DD (GitHub API has 24-hour delay).
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     // Last day with at least one view (most recent complete day).
-    const todayUniques = response.views?.find((day) => day.timestamp.startsWith(yesterday))?.uniques || 0;
+    const todayUniques = response.data.views?.find((day) => day.timestamp.startsWith(yesterday))?.uniques || 0;
 
     return { sumUniques, todayUniques };
 }, (username, reponame) => ['getTrafficPageViews', username, reponame], { revalidate: HOURS_1 });
 
 export const getDependabotAlerts = unstable_cache(async (username, reponame) => {
-    const response = await fetchGitHubJson(`${GITHUB_API_URL}/repos/${username}/${reponame}/dependabot/alerts`, {
+    const response = await fetchGitHubResponse(`${GITHUB_API_URL}/repos/${username}/${reponame}/dependabot/alerts`, {
         context: `Dependabot alerts for ${username}/${reponame}`,
-        fallback: [],
+        fallback: null,
         next: { revalidate: HOURS_12 },
     });
 
-    // Id dependabot is not enabled, the response will be an object, not an array.
-    if (!Array.isArray(response)) {
-        return [];
+    if (!response.ok || !Array.isArray(response.data)) {
+        return null;
     }
-    const openAlertsBySeverity = response.reduce((acc, alert) => {
+
+    // Id dependabot is not enabled, the response will be an object, not an array.
+    const openAlertsBySeverity = response.data.reduce((acc, alert) => {
         if (alert.state === 'open') {
             acc[alert.security_advisory.severity] = acc[alert.security_advisory.severity] ? acc[alert.security_advisory.severity] + 1 : 1;
         }
@@ -558,7 +563,7 @@ async function fetchCopilotPRCountChunk(repositories) {
     });
 
     return searchableRepositories.reduce((acc, project, index) => {
-        acc[getRepositoryKey(project)] = response[`repo${index}`]?.issueCount || 0;
+        acc[getRepositoryKey(project)] = response[`repo${index}`]?.issueCount ?? null;
         return acc;
     }, {});
 }
@@ -612,7 +617,7 @@ async function enrichProjectsForCards(projects, resolvedUsername) {
                 isOwnerRepo,
                 views,
                 openAlertsBySeverity,
-                copilotPRCount: isOwnerRepo ? (copilotPRCounts[getRepositoryKey(project)] || 0) : null,
+                copilotPRCount: isOwnerRepo ? (copilotPRCounts[getRepositoryKey(project)] ?? null) : null,
             },
             vercel: project.vercel ? {
                 ...project.vercel,
