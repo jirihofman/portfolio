@@ -10,6 +10,7 @@ const HOURS_12 = 60 * 60 * 12;
 const HOURS_24 = 60 * 60 * 24;
 const GITHUB_API_URL = 'https://api.github.com';
 const GITHUB_GRAPHQL_URL = `${GITHUB_API_URL}/graphql`;
+const COPILOT_GRAPHQL_BATCH_SIZE = 20;
 
 function cloneFallbackValue(fallback) {
     if (fallback === null || fallback === undefined || typeof fallback !== 'object') {
@@ -124,7 +125,9 @@ async function fetchPaginatedGitHubArray(initialUrl, { context, next } = {}) {
         }
 
         if (!Array.isArray(response.data)) {
-            console.error(`GitHub API returned an unexpected payload for ${context} on page ${page}.`);
+            console.error(`GitHub API returned an unexpected payload for ${context} on page ${page}.`, {
+                payloadType: typeof response.data,
+            });
             break;
         }
 
@@ -166,6 +169,26 @@ function chunkItems(items, size) {
     }
 
     return chunks;
+}
+
+function buildCopilotRepoSearchQuery(username, reponame) {
+    if (typeof username !== 'string' || typeof reponame !== 'string') {
+        return null;
+    }
+
+    if (!/^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/.test(username) || !/^[a-zA-Z0-9._-]{1,100}$/.test(reponame)) {
+        return null;
+    }
+
+    return `is:pr is:merged author:copilot-swe-agent[bot] involves:${username} repo:${username}/${reponame}`;
+}
+
+function buildCopilotAccountSearchQuery(username) {
+    if (typeof username !== 'string' || !/^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/.test(username)) {
+        return null;
+    }
+
+    return `is:pr is:merged author:copilot-swe-agent[bot] involves:${username}`;
 }
 
 // TODO: Implement option to switch between info for authenticated user and other users.
@@ -505,20 +528,22 @@ export const checkAppJsxExistence = unstable_cache(async (repoOwner, repoName) =
 }, (repoOwner, repoName) => ['checkAppJsxExistence', repoOwner, repoName], { revalidate: HOURS_24 });
 
 async function fetchCopilotPRCountChunk(repositories) {
-    if (!repositories.length) {
+    const searchableRepositories = repositories.filter((project) => buildCopilotRepoSearchQuery(project.owner?.login, project.name));
+
+    if (!searchableRepositories.length) {
         return {};
     }
 
-    const variableDefinitions = repositories.map((_, index) => `$q${index}: String!`).join(', ');
-    const searches = repositories.map((_, index) => `
+    const variableDefinitions = searchableRepositories.map((_, index) => `$q${index}: String!`).join(', ');
+    const searches = searchableRepositories.map((_, index) => `
         repo${index}: search(type: ISSUE, query: $q${index}, first: 1) {
             issueCount
         }
     `).join('\n');
     const variables = Object.fromEntries(
-        repositories.map((project, index) => [
+        searchableRepositories.map((project, index) => [
             `q${index}`,
-            `is:pr is:merged author:copilot-swe-agent[bot] involves:${project.owner.login} repo:${project.owner.login}/${project.name}`
+            buildCopilotRepoSearchQuery(project.owner.login, project.name)
         ])
     );
 
@@ -527,20 +552,20 @@ async function fetchCopilotPRCountChunk(repositories) {
             ${searches}
         }
     `, variables, {
-        context: `batched Copilot PR counts for ${repositories.length} repositories`,
+        context: `batched Copilot PR counts for ${searchableRepositories.length} repositories`,
         fallback: {},
         next: { revalidate: HOURS_12 },
     });
 
-    return repositories.reduce((acc, project, index) => {
+    return searchableRepositories.reduce((acc, project, index) => {
         acc[getRepositoryKey(project)] = response[`repo${index}`]?.issueCount || 0;
         return acc;
     }, {});
 }
 
 async function getCopilotPRCounts(repositories) {
-    const counts = await Promise.all(chunkItems(repositories, 20).map(fetchCopilotPRCountChunk));
-    return counts.reduce((acc, chunkResult) => ({ ...acc, ...chunkResult }), {});
+    const counts = await Promise.all(chunkItems(repositories, COPILOT_GRAPHQL_BATCH_SIZE).map(fetchCopilotPRCountChunk));
+    return counts.reduce((acc, chunkResult) => Object.assign(acc, chunkResult), {});
 }
 
 async function getRepositoryVercelDetails(username, reponame, nextjsLatestRelease) {
@@ -566,18 +591,19 @@ async function getRepositoryVercelDetails(username, reponame, nextjsLatestReleas
 
 async function enrichProjectsForCards(projects, resolvedUsername) {
     const ownerProjects = projects.filter((project) => isOwnedRepository(project, resolvedUsername));
+    const hasVercelProjects = projects.some((project) => project.vercel);
     const [copilotPRCounts, nextjsLatestRelease] = await Promise.all([
         getCopilotPRCounts(ownerProjects),
-        projects.some((project) => project.vercel) ? getNextjsLatestRelease() : Promise.resolve({}),
+        hasVercelProjects ? getNextjsLatestRelease() : Promise.resolve({}),
     ]);
 
     return Promise.all(projects.map(async (project) => {
         const repoOwner = project.owner?.login;
         const isOwnerRepo = isOwnedRepository(project, resolvedUsername);
         const [views, openAlertsBySeverity, vercelDetails] = await Promise.all([
-            isOwnerRepo ? getTrafficPageViews(repoOwner, project.name) : Promise.resolve(null),
-            isOwnerRepo ? getDependabotAlerts(repoOwner, project.name) : Promise.resolve(null),
-            project.vercel ? getRepositoryVercelDetails(repoOwner, project.name, nextjsLatestRelease) : Promise.resolve(null),
+            isOwnerRepo && repoOwner ? getTrafficPageViews(repoOwner, project.name) : Promise.resolve(null),
+            isOwnerRepo && repoOwner ? getDependabotAlerts(repoOwner, project.name) : Promise.resolve(null),
+            project.vercel && repoOwner ? getRepositoryVercelDetails(repoOwner, project.name, nextjsLatestRelease) : Promise.resolve(null),
         ]);
 
         return {
@@ -662,7 +688,13 @@ export const getCopilotPRs = unstable_cache(async (username, reponame) => {
     console.time('getCopilotPRs-' + repo);
 
     try {
-        const query = `is:pr is:merged author:copilot-swe-agent[bot] involves:${username} repo:${username}/${reponame}`;
+        const query = buildCopilotRepoSearchQuery(username, reponame);
+
+        if (!query) {
+            console.timeEnd('getCopilotPRs-' + repo);
+            return 0;
+        }
+
         const response = await fetchGitHubGraphQL(`
             query CopilotAuthoredMergedPRs($q: String!, $after: String) {
                 search(type: ISSUE, query: $q, first: 50, after: $after) {
@@ -696,7 +728,12 @@ export const getCopilotPRsAccountWide = unstable_cache(async (username) => {
     console.time('getCopilotPRsAccountWide');
 
     try {
-        const query = `is:pr is:merged author:copilot-swe-agent[bot] involves:${username}`;
+        const query = buildCopilotAccountSearchQuery(username);
+
+        if (!query) {
+            return 0;
+        }
+
         const response = await fetchGitHubGraphQL(`
             query CopilotAuthoredMergedPRsAccountWide($q: String!) {
                 search(type: ISSUE, query: $q, first: 1) {
