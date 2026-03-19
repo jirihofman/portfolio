@@ -480,7 +480,7 @@ export const getTrafficPageViews = unstable_cache(async (username, reponame) => 
         fallback: null,
     });
 
-    if (!response.ok || !response.data) {
+    if (!response.ok || response.data === null || response.data === undefined) {
         return null;
     }
 
@@ -501,11 +501,11 @@ export const getDependabotAlerts = unstable_cache(async (username, reponame) => 
         next: { revalidate: HOURS_12 },
     });
 
-    if (!response.ok || !Array.isArray(response.data)) {
+    if (!response.ok || response.data === null || response.data === undefined || !Array.isArray(response.data)) {
         return null;
     }
 
-    // Id dependabot is not enabled, the response will be an object, not an array.
+    // If dependabot is not enabled, the response will be an object, not an array.
     const openAlertsBySeverity = response.data.reduce((acc, alert) => {
         if (alert.state === 'open') {
             acc[alert.security_advisory.severity] = acc[alert.security_advisory.severity] ? acc[alert.security_advisory.severity] + 1 : 1;
