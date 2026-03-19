@@ -3,23 +3,21 @@ import { FaGithub } from "react-icons/fa";
 import { GoDependabot, GoEye, GoEyeClosed, GoStar } from 'react-icons/go';
 import { SiGithubcopilot } from 'react-icons/si';
 import { VercelInfo } from "../components/vercel-info";
-import { getTrafficPageViews, getDependabotAlerts, getCopilotPRs } from "../data";
 
-export const Article = async ({ project }) => {
+export const Article = ({ project }) => {
 
     const appLink = project.homepage ? project.homepage : project.html_url;
+    const { ownerMetrics } = project;
 
     /** Repository visitors info. */
     let views = <span title="Can't get traffic data for someone else's repo." className="flex items-center gap-1"><GoEyeClosed className="w-4 h-4" /></span>;
     let alerts = <span title="Can't get alerts data for someone else's repo."><GoDependabot className="w-4 h-4" /></span>;
     let copilotPRs = <span title="Can't get Copilot data for someone else's repo."><SiGithubcopilot className="w-4 h-4" /></span>;
-    const isGitHubUser = process.env.GITHUB_USERNAME === project.owner.login;
-    if (isGitHubUser) {
-        const [{ todayUniques, sumUniques } = {}, openAlertsBySeverity, copilotPRCount] = await Promise.all([
-            getTrafficPageViews(project.owner.login, project.name), 
-            getDependabotAlerts(project.owner.login, project.name),
-            getCopilotPRs(project.owner.login, project.name)
-        ]);
+    if (ownerMetrics?.isOwnerRepo) {
+        const { todayUniques = 0, sumUniques = 0 } = ownerMetrics.views || {};
+        const openAlertsBySeverity = ownerMetrics.openAlertsBySeverity || {};
+        const copilotPRCount = ownerMetrics.copilotPRCount || 0;
+
         views = <span title="Unique repository visitors: Last 14 days / Yesterday (GitHub API has 24-hour delay)." className="flex items-center gap-1">
             <GoEye className="w-4 h-4" />{" "}
             {Intl.NumberFormat("en-US", { notation: "compact" }).format(sumUniques)}/{Intl.NumberFormat("en-US", { notation: "compact" }).format(todayUniques)}

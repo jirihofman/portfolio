@@ -66,7 +66,7 @@ export const RecentActivity = async ({ username }) => {
     return (
         <div>
             <span className="text-sm">
-                {activitySummaryString && 'In last 90 days on GitHub  I ' + activitySummaryString + ' in public repositories.'}
+                {activitySummaryString && 'From recent public GitHub activity, I ' + activitySummaryString + ' in public repositories.'}
             </span>
             {/* {JSON.stringify(recentUserActivity.map(a => a.payload?.review && Object.keys(a.payload?.review).join()), null, 4)} */}
             {/* {JSON.stringify(Object.keys(recentUserActivity[4]).join(), null, 4)} */}

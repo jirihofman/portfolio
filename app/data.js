@@ -1,102 +1,253 @@
 // Using unstable_cache for data fetching functions to improve performance.
 // These wrappers provide automatic caching with configurable revalidation times.
 import { unstable_cache } from 'next/cache';
+import data from '../data.json';
 
 const revalidate = 60;
 const MINUTES_5 = 60 * 5;
 const HOURS_1 = 60 * 60;
 const HOURS_12 = 60 * 60 * 12;
 const HOURS_24 = 60 * 60 * 24;
+const GITHUB_API_URL = 'https://api.github.com';
+const GITHUB_GRAPHQL_URL = `${GITHUB_API_URL}/graphql`;
+
+function cloneFallbackValue(fallback) {
+    if (fallback === null || fallback === undefined || typeof fallback !== 'object') {
+        return fallback;
+    }
+
+    return structuredClone(fallback);
+}
+
+function getGitHubHeaders(extraHeaders = {}) {
+    const headers = {
+        Accept: 'application/vnd.github+json',
+        ...extraHeaders,
+    };
+
+    if (process.env.GH_TOKEN) {
+        headers.Authorization = `Bearer ${process.env.GH_TOKEN}`;
+    }
+
+    return headers;
+}
+
+async function parseJsonResponse(res, context, fallback) {
+    try {
+        return await res.json();
+    } catch (error) {
+        console.error(`Failed to parse JSON for ${context}:`, error);
+        return cloneFallbackValue(fallback);
+    }
+}
+
+async function fetchGitHubResponse(url, { context, fallback = null, method = 'GET', body, headers, next } = {}) {
+    try {
+        const res = await fetch(url, {
+            method,
+            body,
+            headers: getGitHubHeaders(headers),
+            next,
+        });
+        const contentType = res.headers.get('content-type') || '';
+        let payload = cloneFallbackValue(fallback);
+
+        if (contentType.includes('application/json')) {
+            payload = await parseJsonResponse(res, context, fallback);
+        } else if (res.ok) {
+            console.error(`GitHub API returned a non-JSON response for ${context}.`);
+        }
+
+        if (!res.ok) {
+            console.error(`GitHub API returned an error for ${context}.`, res.status, res.statusText);
+            return { ok: false, data: cloneFallbackValue(fallback), headers: res.headers };
+        }
+
+        return { ok: true, data: payload, headers: res.headers };
+    } catch (error) {
+        console.error(`GitHub API request failed for ${context}:`, error);
+        return { ok: false, data: cloneFallbackValue(fallback), headers: new Headers() };
+    }
+}
+
+async function fetchGitHubJson(url, options) {
+    const response = await fetchGitHubResponse(url, options);
+    return response.data;
+}
+
+async function fetchGitHubGraphQL(query, variables, { context, fallback = null, next } = {}) {
+    const response = await fetchGitHubResponse(GITHUB_GRAPHQL_URL, {
+        context,
+        fallback,
+        method: 'POST',
+        next,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, variables }),
+    });
+
+    if (!response.ok) {
+        return cloneFallbackValue(fallback);
+    }
+
+    if (response.data?.errors) {
+        console.error(`GitHub GraphQL returned an error for ${context}.`, response.data.errors);
+        return cloneFallbackValue(fallback);
+    }
+
+    return response.data?.data ?? cloneFallbackValue(fallback);
+}
+
+function hasNextPage(linkHeader) {
+    return Boolean(linkHeader?.split(',').some((link) => link.includes('rel="next"')));
+}
+
+async function fetchPaginatedGitHubArray(initialUrl, { context, next } = {}) {
+    const items = [];
+    let page = 1;
+    let shouldContinue = true;
+
+    while (shouldContinue) {
+        const url = new URL(initialUrl);
+
+        if (page > 1) {
+            url.searchParams.set('page', page.toString());
+        }
+
+        const response = await fetchGitHubResponse(url.toString(), {
+            context: `${context} (page ${page})`,
+            fallback: [],
+            next,
+        });
+
+        if (!response.ok) {
+            break;
+        }
+
+        if (!Array.isArray(response.data)) {
+            console.error(`GitHub API returned an unexpected payload for ${context} on page ${page}.`);
+            break;
+        }
+
+        items.push(...response.data);
+        shouldContinue = hasNextPage(response.headers.get('link'));
+        page++;
+    }
+
+    return items;
+}
+
+function getRepositoryKey(project) {
+    return project.full_name ?? `${project.owner?.login}/${project.name}`;
+}
+
+function isOwnedRepository(project, username) {
+    return Boolean(username && project.owner?.login && project.owner.login.toLowerCase() === username.toLowerCase());
+}
+
+function createEmptyVercelDetails(nextjsLatestRelease = {}) {
+    return {
+        nextjsLatestRelease,
+        packageJson: null,
+        isRouterPages: false,
+        isRouterApp: false,
+        repositoryFrameworks: [],
+    };
+}
+
+function chunkItems(items, size) {
+    if (!items.length) {
+        return [];
+    }
+
+    const chunks = [];
+
+    for (let index = 0; index < items.length; index += size) {
+        chunks.push(items.slice(index, index + size));
+    }
+
+    return chunks;
+}
 
 // TODO: Implement option to switch between info for authenticated user and other users.
 export const getUser = unstable_cache(async (username) => {
     console.log('Fetching user data for', username);
     console.time('getUser');
-    const res = await fetch('https://api.github.com/users/' + username, {
-        headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+    const response = await fetchGitHubJson(`${GITHUB_API_URL}/users/${username}`, {
+        context: `user data for ${username}`,
+        fallback: {},
     });
     console.timeEnd('getUser');
-    return res.json();
+    return response;
 }, (username) => ['getUser', username], { revalidate });
 
 export const getRepos = unstable_cache(async (username) => {
     console.log('Fetching repos for', username);
     console.time('getRepos');
-    const res = await fetch('https://api.github.com/users/' + username + '/repos?per_page=100', {
-        headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+    const response = await fetchPaginatedGitHubArray(`${GITHUB_API_URL}/users/${username}/repos?per_page=100`, {
+        context: `repositories for ${username}`,
     });
     console.timeEnd('getRepos');
-    if (!res.ok) {
-        console.error('GitHub API returned an error.', res.status, res.statusText);
-        return [];
-    }
-    const response = await res.json();
-    
-    // Check pagination
-    if (res.headers.get('link')) {
-        let page = 2;
-        let nextLink = res.headers.get('link').split(',').find((link) => link.includes('rel="next"'));
-        while (nextLink) {
-            const nextRes = await fetch('https://api.github.com/users/' + username + '/repos?per_page=100&page=' + page, {
-                headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-            });
-            const nextResponse = await nextRes.json();
-            response.push(...nextResponse);
-            nextLink = nextRes.headers.get('link')?.split(',').find((link) => link.includes('rel="next"'));
-            page++;
-        }
-    }
-    
     return response;
 }, (username) => ['getRepos', username], { revalidate: HOURS_1 });
 
 export const getSocialAccounts = unstable_cache(async (username) => {
     console.log('Fetching social accounts for', username);
     console.time('getSocialAccounts');
-    const res = await fetch('https://api.github.com/users/' + username + '/social_accounts', {
-        headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+    const response = await fetchGitHubJson(`${GITHUB_API_URL}/users/${username}/social_accounts`, {
+        context: `social accounts for ${username}`,
+        fallback: [],
     });
     console.timeEnd('getSocialAccounts');
-    return res.json();
+    return Array.isArray(response) ? response : [];
 }, (username) => ['getSocialAccounts', username], { revalidate: HOURS_12 });
 
 export const getPinnedRepos = unstable_cache(async (username) => {
     console.log('Fetching pinned repos for', username);
     console.time('getPinnedRepos');
-    const res = await fetch('https://api.github.com/graphql', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-        body: JSON.stringify({ query: `{user(login: "${username}") {pinnedItems(first: 6, types: REPOSITORY) {nodes {... on Repository {name}}}}}` }),
+    const pinned = await fetchGitHubGraphQL(`
+        query GetPinnedRepos($username: String!) {
+            user(login: $username) {
+                pinnedItems(first: 6, types: REPOSITORY) {
+                    nodes {
+                        ... on Repository {
+                            name
+                        }
+                    }
+                }
+            }
+        }
+    `, { username }, {
+        context: `pinned repositories for ${username}`,
+        fallback: { user: { pinnedItems: { nodes: [] } } },
     });
     console.timeEnd('getPinnedRepos');
-    if (!res.ok) {
-        console.error('GitHub graphql returned an error.', res.status, res.statusText);
-        return [];
-    }
-    const pinned = await res.json();
-    const names = pinned.data.user.pinnedItems.nodes.map((node) => node.name);
-    return names;
-}, ['getPinnedRepos'], { revalidate: HOURS_12 });
+    return pinned.user?.pinnedItems?.nodes?.map((node) => node?.name).filter(Boolean) ?? [];
+}, (username) => ['getPinnedRepos', username], { revalidate: HOURS_12 });
 
 export const getUserOrganizations = unstable_cache(async (username) => {
     console.log('Fetching organizations for', username);
     console.time('getUserOrganizations');
-    const res = await fetch('https://api.github.com/graphql', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-        body: JSON.stringify({
-            query: `{user(login: "${username}") {organizations(first: 6) {nodes {name,websiteUrl,url,avatarUrl,description}}}}`
-        }),
+    const orgs = await fetchGitHubGraphQL(`
+        query GetUserOrganizations($username: String!) {
+            user(login: $username) {
+                organizations(first: 6) {
+                    nodes {
+                        name
+                        websiteUrl
+                        url
+                        avatarUrl
+                        description
+                    }
+                }
+            }
+        }
+    `, { username }, {
+        context: `organizations for ${username}`,
+        fallback: { user: { organizations: { nodes: [] } } },
     });
     console.timeEnd('getUserOrganizations');
-    const orgs = await res.json();
-
-    if (!res.ok) {
-        console.error('GitHub graphql returned an error.', res.status, res.statusText, orgs);
-        return { data: { user: { organizations: { nodes: [] } } } };
-    }
-    return orgs;
-}, ['getUserOrganizations'], { revalidate: HOURS_12 });
+    return { data: orgs };
+}, (username) => ['getUserOrganizations', username], { revalidate: HOURS_12 });
 
 export const getVercelProjects = unstable_cache(async () => {
     if (!process.env.VC_TOKEN) {
@@ -123,7 +274,14 @@ export const getVercelProjects = unstable_cache(async () => {
                 return { projects: [] };
             }
 
-            const data = await res.json();
+            let data;
+            try {
+                data = await res.json();
+            } catch (error) {
+                console.error('Failed to parse Vercel API response.', error);
+                return { projects: [] };
+            }
+
             allProjects.push(...(data.projects ?? []));
             nextCursor = data.pagination?.next || null;
             url = nextCursor ? `${baseUrl}?limit=${limit}&until=${nextCursor}` : '';
@@ -141,31 +299,28 @@ export const getVercelProjects = unstable_cache(async () => {
 
 /** Cache revalidated every 12 hours. */
 export const getNextjsLatestRelease = unstable_cache(async () => {
-    const res = await fetch('https://api.github.com/graphql', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-        body: JSON.stringify({
-            query: `{
-                repository(name: "next.js", owner: "vercel") {
-                    latestRelease {
-                        tagName
-                        updatedAt
-                    }
+    const nextjsLatest = await fetchGitHubGraphQL(`
+        query GetNextJsLatestRelease($repoName: String!, $owner: String!) {
+            repository(name: $repoName, owner: $owner) {
+                latestRelease {
+                    tagName
+                    updatedAt
                 }
-            }`
-        }),
+            }
+        }
+    `, { repoName: 'next.js', owner: 'vercel' }, {
+        context: 'latest Next.js release',
+        fallback: { repository: { latestRelease: null } },
     });
-    if (!res.ok) {
-        console.error('GitHub API returned an error.', res.status, res.statusText);
+
+    if (!nextjsLatest.repository?.latestRelease) {
         return {};
     }
-    const nextjsLatest = await res.json();
 
-    const result = {
-        tagName: cleanVersionTag(nextjsLatest.data.repository.latestRelease.tagName),
-        updatedAt: nextjsLatest.data.repository.latestRelease.updatedAt,
-    }
-    return result;
+    return {
+        tagName: cleanVersionTag(nextjsLatest.repository.latestRelease.tagName),
+        updatedAt: nextjsLatest.repository.latestRelease.updatedAt,
+    };
 }, ['getNextjsLatestRelease'], { revalidate: HOURS_1 });
 
 /**
@@ -174,6 +329,10 @@ export const getNextjsLatestRelease = unstable_cache(async () => {
  * @returns {string} Clean semantic version string
  */
 function cleanDependencyVersion(versionSpec) {
+    if (typeof versionSpec !== 'string') {
+        return '';
+    }
+
     // Remove version range specifiers like ^, ~, >=, etc.
     return versionSpec.replace(/^[\^~>=<]+/, '');
 }
@@ -184,6 +343,10 @@ function cleanDependencyVersion(versionSpec) {
  * @returns {string} Clean semantic version string
  */
 function cleanVersionTag(tagName) {
+    if (typeof tagName !== 'string') {
+        return '';
+    }
+
     // Remove leading 'v'
     let cleaned = tagName.replace(/^v/, '');
     // Remove package name prefixes like "astro@", "next@", etc.
@@ -199,37 +362,30 @@ function cleanVersionTag(tagName) {
  * @returns {Object} Object with tagName and updatedAt
  */
 export const getFrameworkLatestRelease = unstable_cache(async (repoName, owner, cacheKey) => {
-    const res = await fetch('https://api.github.com/graphql', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-        body: JSON.stringify({
-            query: `{
-                repository(name: "${repoName}", owner: "${owner}") {
-                    latestRelease {
-                        tagName
-                        updatedAt
-                    }
+    const latest = await fetchGitHubGraphQL(`
+        query GetFrameworkLatestRelease($repoName: String!, $owner: String!) {
+            repository(name: $repoName, owner: $owner) {
+                latestRelease {
+                    tagName
+                    updatedAt
                 }
-            }`
-        }),
+            }
+        }
+    `, { repoName, owner }, {
+        context: `latest release for ${owner}/${repoName}`,
+        fallback: { repository: { latestRelease: null } },
     });
-    if (!res.ok) {
-        console.error(`GitHub API returned an error for ${owner}/${repoName}:`, res.status, res.statusText);
-        return {};
-    }
-    const latest = await res.json();
 
-    if (!latest.data?.repository?.latestRelease) {
+    if (!latest.repository?.latestRelease) {
         console.error(`No latest release found for ${owner}/${repoName}`);
         return {};
     }
 
-    const result = {
-        tagName: cleanVersionTag(latest.data.repository.latestRelease.tagName),
-        updatedAt: latest.data.repository.latestRelease.updatedAt,
-    }
-    return result;
-}, ['getFrameworkLatestRelease'], { revalidate: HOURS_1 });
+    return {
+        tagName: cleanVersionTag(latest.repository.latestRelease.tagName),
+        updatedAt: latest.repository.latestRelease.updatedAt,
+    };
+}, (repoName, owner, cacheKey) => ['getFrameworkLatestRelease', cacheKey || `${owner}/${repoName}`], { revalidate: HOURS_1 });
 
 // Specific functions for each framework
 export const getAstroLatestRelease = () => getFrameworkLatestRelease('astro', 'withastro', 'astro');
@@ -238,67 +394,68 @@ export const getSvelteKitLatestRelease = () => getFrameworkLatestRelease('kit', 
 export const getRemixLatestRelease = () => getFrameworkLatestRelease('remix', 'remix-run', 'remix');
 export const getGatsbyLatestRelease = () => getFrameworkLatestRelease('gatsby', 'gatsbyjs', 'gatsby');
 
-export const getRepositoryPackageJson = unstable_cache(async (username, reponame) => {
-    const res = await fetch('https://api.github.com/graphql', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-        body: JSON.stringify({
-            query: `{
-                repository(name: "${reponame}", owner: "${username}") {
-                    object(expression: "HEAD:package.json") {
-                        ... on Blob {
-                            text
-                        }
+const getRepositoryContentInfo = unstable_cache(async (username, reponame) => {
+    const response = await fetchGitHubGraphQL(`
+        query GetRepositoryContentInfo($owner: String!, $repoName: String!) {
+            repository(name: $repoName, owner: $owner) {
+                packageJson: object(expression: "HEAD:package.json") {
+                    ... on Blob {
+                        text
                     }
                 }
-            }`
-        }),
+                pagesAppJsx: object(expression: "HEAD:pages/_app.jsx") {
+                    __typename
+                }
+                pagesAppTsx: object(expression: "HEAD:pages/_app.tsx") {
+                    __typename
+                }
+                appLayoutJsx: object(expression: "HEAD:app/layout.jsx") {
+                    __typename
+                }
+                appLayoutTsx: object(expression: "HEAD:app/layout.tsx") {
+                    __typename
+                }
+            }
+        }
+    `, { owner: username, repoName: reponame }, {
+        context: `repository content info for ${username}/${reponame}`,
+        fallback: { repository: null },
     });
-    const response = await res.json();
-    try {
-        const packageJson = JSON.parse(response.data.repository.object.text);
-        return packageJson;
-    } catch (error) {
-        // Not all repositories have a package.json
+
+    return response.repository;
+}, (username, reponame) => ['getRepositoryContentInfo', username, reponame], { revalidate: HOURS_1 });
+
+export const getRepositoryPackageJson = unstable_cache(async (username, reponame) => {
+    const repository = await getRepositoryContentInfo(username, reponame);
+    const packageJsonText = repository?.packageJson?.text;
+
+    if (!packageJsonText) {
         return null;
     }
-}, ['getRepositoryPackageJson'], { revalidate: HOURS_1 });
+
+    try {
+        return JSON.parse(packageJsonText);
+    } catch (error) {
+        console.error(`Failed to parse package.json for ${username}/${reponame}:`, error);
+        return null;
+    }
+}, (username, reponame) => ['getRepositoryPackageJson', username, reponame], { revalidate: HOURS_1 });
 
 export const getRecentUserActivity = unstable_cache(async (username) => {
     console.log('Fetching recent activity for', username);
     console.time('getRecentUserActivity');
-    const res = await fetch('https://api.github.com/users/' + username + '/events?per_page=100', {
-        headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+    const response = await fetchPaginatedGitHubArray(`${GITHUB_API_URL}/users/${username}/events?per_page=100`, {
+        context: `recent activity for ${username}`,
     });
-    const response = await res.json();
-    // Check pagination
-    if (res.headers.get('link')) {
-        let page = 2;
-        let nextLink = res.headers.get('link').split(',').find((link) => link.includes('rel="next"'));
-        while (nextLink) {
-            const nextRes = await fetch('https://api.github.com/users/' + username + '/events?per_page=100&page=' + page, {
-                headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-            });
-            const nextResponse = await nextRes.json();
-            response.push(...nextResponse);
-            nextLink = nextRes.headers.get('link')?.split(',').find((link) => link.includes('rel="next"'));
-            page++;
-        };
-    }
-
-    if (!res.ok) {
-        console.error('GitHub API /users returned an error.', res.status, res.statusText, response);
-        return [];
-    }
     console.timeEnd('getRecentUserActivity');
     return response;
 }, (username) => ['getRecentUserActivity', username], { revalidate: MINUTES_5 });
 
 export const getTrafficPageViews = unstable_cache(async (username, reponame) => {
-    const res = await fetch('https://api.github.com/repos/' + username + '/' + reponame + '/traffic/views', {
-        headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+    const response = await fetchGitHubJson(`${GITHUB_API_URL}/repos/${username}/${reponame}/traffic/views`, {
+        context: `traffic views for ${username}/${reponame}`,
+        fallback: {},
     });
-    const response = await res.json();
 
     const sumUniques = response.uniques || 0;
 
@@ -311,15 +468,14 @@ export const getTrafficPageViews = unstable_cache(async (username, reponame) => 
 }, (username, reponame) => ['getTrafficPageViews', username, reponame], { revalidate: HOURS_1 });
 
 export const getDependabotAlerts = unstable_cache(async (username, reponame) => {
-    const res = await fetch('https://api.github.com/repos/' + username + '/' + reponame + '/dependabot/alerts', {
-        headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-        next: { revalidate: HOURS_12 }
+    const response = await fetchGitHubJson(`${GITHUB_API_URL}/repos/${username}/${reponame}/dependabot/alerts`, {
+        context: `Dependabot alerts for ${username}/${reponame}`,
+        fallback: [],
+        next: { revalidate: HOURS_12 },
     });
 
-    const response = await res.json();
-
     // Id dependabot is not enabled, the response will be an object, not an array.
-    if (response.length === undefined) {
+    if (!Array.isArray(response)) {
         return [];
     }
     const openAlertsBySeverity = response.reduce((acc, alert) => {
@@ -330,7 +486,7 @@ export const getDependabotAlerts = unstable_cache(async (username, reponame) => 
     }, {});
 
     return openAlertsBySeverity;
-}, ['getDependabotAlerts'], { revalidate: HOURS_12 });
+}, (username, reponame) => ['getDependabotAlerts', username, reponame], { revalidate: HOURS_12 });
 
 /**
  * Determines if a repository is using Next.js App Router or legacy pages/_app.jsx. Or both.
@@ -340,63 +496,157 @@ export const getDependabotAlerts = unstable_cache(async (username, reponame) => 
  * @returns Object with two booleans: isRouterPages and isRouterApp
  */
 export const checkAppJsxExistence = unstable_cache(async (repoOwner, repoName) => {
-    const urlPagesApp = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/pages/_app.jsx`;
-    const urlPagesAppTsx = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/pages/_app.tsx`;
-    const urlAppLayout = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/app/layout.jsx`;
-    const urlAppLayoutTsx = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/app/layout.tsx`;
+    const repository = await getRepositoryContentInfo(repoOwner, repoName);
 
-    const res = {
-        isRouterPages: false,
-        isRouterApp: false,
+    return {
+        isRouterPages: Boolean(repository?.pagesAppJsx || repository?.pagesAppTsx),
+        isRouterApp: Boolean(repository?.appLayoutJsx || repository?.appLayoutTsx),
     };
+}, (repoOwner, repoName) => ['checkAppJsxExistence', repoOwner, repoName], { revalidate: HOURS_24 });
 
-    try {
-        // First, try JSX versions
-        const [ isPagesRes, isAppLayoutRes ] = await Promise.all([
-            fetch(urlPagesApp, {
-                headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-                next: { revalidate: HOURS_24 }
-            }),
-            fetch(urlAppLayout, {
-                headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-                next: { revalidate: HOURS_24 }
-            }),
-        ]);
-
-        if (isPagesRes.status === 200) {
-            res.isRouterPages = true;
-        }
-
-        if (isAppLayoutRes.status === 200) {
-            res.isRouterApp = true;
-        }
-
-        // If JSX endpoints didn't resolve, try TSX fallbacks
-        if (!res.isRouterPages) {
-            const isPagesResTsx = await fetch(urlPagesAppTsx, {
-                headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-                next: { revalidate: HOURS_24 }
-            });
-            if (isPagesResTsx.status === 200) {
-                res.isRouterPages = true;
-            }
-        }
-
-        if (!res.isRouterApp) {
-            const isAppLayoutResTsx = await fetch(urlAppLayoutTsx, {
-                headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-                next: { revalidate: HOURS_24 }
-            });
-            if (isAppLayoutResTsx.status === 200) {
-                res.isRouterApp = true;
-            }
-        }
-    } catch (error) {
-        console.error(`Error checking _app.jsx existence in ${repoName}: ${error.message}`);
+async function fetchCopilotPRCountChunk(repositories) {
+    if (!repositories.length) {
+        return {};
     }
 
-    return res;
-}, ['checkAppJsxExistence'], { revalidate: HOURS_24 });
+    const variableDefinitions = repositories.map((_, index) => `$q${index}: String!`).join(', ');
+    const searches = repositories.map((_, index) => `
+        repo${index}: search(type: ISSUE, query: $q${index}, first: 1) {
+            issueCount
+        }
+    `).join('\n');
+    const variables = Object.fromEntries(
+        repositories.map((project, index) => [
+            `q${index}`,
+            `is:pr is:merged author:copilot-swe-agent[bot] involves:${project.owner.login} repo:${project.owner.login}/${project.name}`
+        ])
+    );
+
+    const response = await fetchGitHubGraphQL(`
+        query BatchCopilotPRCounts(${variableDefinitions}) {
+            ${searches}
+        }
+    `, variables, {
+        context: `batched Copilot PR counts for ${repositories.length} repositories`,
+        fallback: {},
+        next: { revalidate: HOURS_12 },
+    });
+
+    return repositories.reduce((acc, project, index) => {
+        acc[getRepositoryKey(project)] = response[`repo${index}`]?.issueCount || 0;
+        return acc;
+    }, {});
+}
+
+async function getCopilotPRCounts(repositories) {
+    const counts = await Promise.all(chunkItems(repositories, 20).map(fetchCopilotPRCountChunk));
+    return counts.reduce((acc, chunkResult) => ({ ...acc, ...chunkResult }), {});
+}
+
+async function getRepositoryVercelDetails(username, reponame, nextjsLatestRelease) {
+    try {
+        const [packageJson, routerInfo, repositoryFrameworks] = await Promise.all([
+            getRepositoryPackageJson(username, reponame),
+            checkAppJsxExistence(username, reponame),
+            getRepositoryFrameworks(username, reponame),
+        ]);
+
+        return {
+            nextjsLatestRelease,
+            packageJson,
+            isRouterPages: routerInfo.isRouterPages,
+            isRouterApp: routerInfo.isRouterApp,
+            repositoryFrameworks,
+        };
+    } catch (error) {
+        console.error(`Failed to enrich Vercel data for ${username}/${reponame}:`, error);
+        return createEmptyVercelDetails(nextjsLatestRelease);
+    }
+}
+
+async function enrichProjectsForCards(projects, resolvedUsername) {
+    const ownerProjects = projects.filter((project) => isOwnedRepository(project, resolvedUsername));
+    const [copilotPRCounts, nextjsLatestRelease] = await Promise.all([
+        getCopilotPRCounts(ownerProjects),
+        projects.some((project) => project.vercel) ? getNextjsLatestRelease() : Promise.resolve({}),
+    ]);
+
+    return Promise.all(projects.map(async (project) => {
+        const repoOwner = project.owner?.login;
+        const isOwnerRepo = isOwnedRepository(project, resolvedUsername);
+        const [views, openAlertsBySeverity, vercelDetails] = await Promise.all([
+            isOwnerRepo ? getTrafficPageViews(repoOwner, project.name) : Promise.resolve(null),
+            isOwnerRepo ? getDependabotAlerts(repoOwner, project.name) : Promise.resolve(null),
+            project.vercel ? getRepositoryVercelDetails(repoOwner, project.name, nextjsLatestRelease) : Promise.resolve(null),
+        ]);
+
+        return {
+            ...project,
+            ownerMetrics: {
+                isOwnerRepo,
+                views,
+                openAlertsBySeverity,
+                copilotPRCount: isOwnerRepo ? (copilotPRCounts[getRepositoryKey(project)] || 0) : null,
+            },
+            vercel: project.vercel ? {
+                ...project.vercel,
+                details: vercelDetails ?? createEmptyVercelDetails(nextjsLatestRelease),
+            } : undefined,
+        };
+    }));
+}
+
+export const getProjectsPageData = unstable_cache(async (username) => {
+    const [
+        repositories,
+        pinnedNames,
+        vercelProjects
+    ] = await Promise.all([
+        getRepos(username),
+        getPinnedRepos(username),
+        getVercelProjects()
+    ]);
+
+    const vercelProjectsByName = new Map(
+        vercelProjects.projects
+            .filter((project) => repositories.some((repo) => repo.name === project.name))
+            .map((project) => [project.name, {
+                framework: project.framework,
+                name: project.name,
+                nodeVersion: project.nodeVersion,
+                link: project.link,
+                description: project.description,
+            }])
+    );
+
+    const repositoriesWithVercel = repositories.map((repo) => ({
+        ...repo,
+        vercel: vercelProjectsByName.get(repo.name),
+    }));
+
+    const heroes = repositoriesWithVercel
+        .filter((project) => pinnedNames.includes(project.name))
+        .sort((a, b) => b.stargazers_count - a.stargazers_count);
+    const sorted = repositoriesWithVercel
+        .filter((p) => !p.private)
+        .filter((p) => !p.fork)
+        .filter((p) => !p.archived)
+        .filter((p) => !pinnedNames.includes(p.name))
+        .filter((p) => !data.projects.blacklist.includes(p.name))
+        .sort(
+            (a, b) =>
+                new Date(b.updated_at ?? Number.POSITIVE_INFINITY).getTime() -
+                new Date(a.updated_at ?? Number.POSITIVE_INFINITY).getTime(),
+        );
+
+    const enrichedProjects = await enrichProjectsForCards([...heroes, ...sorted], username);
+    const enrichedProjectsByKey = new Map(enrichedProjects.map((project) => [getRepositoryKey(project), project]));
+
+    return {
+        heroes: heroes.map((project) => enrichedProjectsByKey.get(getRepositoryKey(project)) ?? project),
+        sorted: sorted.map((project) => enrichedProjectsByKey.get(getRepositoryKey(project)) ?? project),
+    };
+}, (username) => ['getProjectsPageData', username], { revalidate: HOURS_1 });
 
 /**
  * Get the number of merged pull requests created by Copilot.
@@ -413,60 +663,26 @@ export const getCopilotPRs = unstable_cache(async (username, reponame) => {
 
     try {
         const query = `is:pr is:merged author:copilot-swe-agent[bot] involves:${username} repo:${username}/${reponame}`;
-        
-        const res = await fetch('https://api.github.com/graphql', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
+        const response = await fetchGitHubGraphQL(`
+            query CopilotAuthoredMergedPRs($q: String!, $after: String) {
+                search(type: ISSUE, query: $q, first: 50, after: $after) {
+                    issueCount
+                }
+            }
+        `, { q: query }, {
+            context: `Copilot PRs for ${username}/${reponame}`,
+            fallback: { search: { issueCount: 0 } },
             next: { revalidate: HOURS_12 },
-            body: JSON.stringify({
-                query: `
-                    query CopilotAuthoredMergedPRs($q: String!, $after: String) {
-                        search(type: ISSUE, query: $q, first: 50, after: $after) {
-                            issueCount
-                            pageInfo {
-                                hasNextPage
-                                endCursor
-                            }
-                            nodes {
-                                ... on PullRequest {
-                                    title
-                                    repository { nameWithOwner }
-                                    createdAt
-                                    mergedAt
-                                    mergedBy { login }
-                                    author { login }
-                                    additions
-                                    deletions
-                                }
-                            }
-                        }
-                    }
-                `,
-                variables: { q: query }
-            }),
         });
-
-        if (!res.ok) {
-            console.error(`GitHub GraphQL API returned an error for ${username}/${reponame}:`, res.status, res.statusText);
-            console.timeEnd('getCopilotPRs-' + repo);
-            return 0;
-        }
-
-        const response = await res.json();
         console.timeEnd('getCopilotPRs-' + repo);
-        
-        if (response.errors) {
-            console.error(`GraphQL errors for ${username}/${reponame}:`, response.errors);
-            return 0;
-        }
 
-        return response.data?.search?.issueCount || 0;
+        return response.search?.issueCount || 0;
     } catch (error) {
         console.error(`Error getting Copilot PRs for ${username}/${reponame}:`, error);
         console.timeEnd('getCopilotPRs-' + repo);
         return 0;
     }
-}, ['getCopilotPRs'], { revalidate: HOURS_12 });
+}, (username, reponame) => ['getCopilotPRs', username, reponame], { revalidate: HOURS_12 });
 
 /**
  * Get the total number of merged pull requests created by Copilot across all repositories for a user.
@@ -481,43 +697,25 @@ export const getCopilotPRsAccountWide = unstable_cache(async (username) => {
 
     try {
         const query = `is:pr is:merged author:copilot-swe-agent[bot] involves:${username}`;
-        
-        const res = await fetch('https://api.github.com/graphql', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${process.env.GH_TOKEN}` },
-            // next: { revalidate: HOURS_12 },
-            body: JSON.stringify({
-                query: `
-                    query CopilotAuthoredMergedPRsAccountWide($q: String!) {
-                        search(type: ISSUE, query: $q, first: 1) {
-                            issueCount
-                        }
-                    }
-                `,
-                variables: { q: query }
-            }),
+        const response = await fetchGitHubGraphQL(`
+            query CopilotAuthoredMergedPRsAccountWide($q: String!) {
+                search(type: ISSUE, query: $q, first: 1) {
+                    issueCount
+                }
+            }
+        `, { q: query }, {
+            context: `account-wide Copilot PRs for ${username}`,
+            fallback: { search: { issueCount: 0 } },
         });
 
-        if (!res.ok) {
-            console.error(`GitHub GraphQL API returned an error for ${username}:`, res.status, res.statusText);
-            return 0;
-        }
-   
-        const response = await res.json();
-        
-        if (response.errors) {
-            console.error(`GraphQL errors for ${username}:`, response.errors);
-            return 0;
-        }
-
-        return response.data?.search?.issueCount || 0;
+        return response.search?.issueCount || 0;
     } catch (error) {
         console.error(`Error getting account-wide Copilot PRs for ${username}:`, error);
         return 0;
     } finally {
         console.timeEnd('getCopilotPRsAccountWide');
     }
-}, ['getCopilotPRsAccountWide'], { revalidate: HOURS_12 });
+}, (username) => ['getCopilotPRsAccountWide', username], { revalidate: HOURS_12 });
 
 /**
  * Detects frameworks from package.json dependencies and devDependencies
@@ -643,4 +841,4 @@ export const getRepositoryFrameworks = unstable_cache(async (username, reponame)
     );
 
     return frameworksWithLatest;
-}, ['getRepositoryFrameworks'], { revalidate: HOURS_1 });
+}, (username, reponame) => ['getRepositoryFrameworks', username, reponame], { revalidate: HOURS_1 });
