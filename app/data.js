@@ -11,6 +11,7 @@ const HOURS_24 = 60 * 60 * 24;
 const GITHUB_API_URL = 'https://api.github.com';
 const GITHUB_GRAPHQL_URL = `${GITHUB_API_URL}/graphql`;
 const COPILOT_GRAPHQL_BATCH_SIZE = 20;
+const PORTFOLIO_OWNER_USERNAME = process.env.GITHUB_USERNAME || data.githubUsername;
 
 function cloneFallbackValue(fallback) {
     if (fallback === null || fallback === undefined || typeof fallback !== 'object') {
@@ -594,8 +595,8 @@ async function getRepositoryVercelDetails(username, reponame, nextjsLatestReleas
     }
 }
 
-async function enrichProjectsForCards(projects, resolvedUsername) {
-    const ownerProjects = projects.filter((project) => isOwnedRepository(project, resolvedUsername));
+async function enrichProjectsForCards(projects) {
+    const ownerProjects = projects.filter((project) => isOwnedRepository(project, PORTFOLIO_OWNER_USERNAME));
     const hasVercelProjects = projects.some((project) => project.vercel);
     const [copilotPRCounts, nextjsLatestRelease] = await Promise.all([
         getCopilotPRCounts(ownerProjects),
@@ -604,7 +605,7 @@ async function enrichProjectsForCards(projects, resolvedUsername) {
 
     return Promise.all(projects.map(async (project) => {
         const repoOwner = project.owner?.login;
-        const isOwnerRepo = isOwnedRepository(project, resolvedUsername);
+        const isOwnerRepo = isOwnedRepository(project, PORTFOLIO_OWNER_USERNAME);
         const [views, openAlertsBySeverity, vercelDetails] = await Promise.all([
             isOwnerRepo && repoOwner ? getTrafficPageViews(repoOwner, project.name) : Promise.resolve(null),
             isOwnerRepo && repoOwner ? getDependabotAlerts(repoOwner, project.name) : Promise.resolve(null),
@@ -670,7 +671,7 @@ export const getProjectsPageData = unstable_cache(async (username) => {
                 new Date(a.updated_at ?? Number.POSITIVE_INFINITY).getTime(),
         );
 
-    const enrichedProjects = await enrichProjectsForCards([...heroes, ...sorted], username);
+    const enrichedProjects = await enrichProjectsForCards([...heroes, ...sorted]);
     const enrichedProjectsByKey = new Map(enrichedProjects.map((project) => [getRepositoryKey(project), project]));
 
     return {
