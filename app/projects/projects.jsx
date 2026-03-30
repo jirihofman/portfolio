@@ -1,58 +1,10 @@
 import { Card } from "../components/card";
 import { Article } from "./article";
-import data from "../../data.json";
 import chunk from 'lodash/chunk';
-import { getRepos, getPinnedRepos, getVercelProjects } from "../data";
+import { getProjectsPageData } from "../data";
 
 export default async function ProjectsComponent({ username }) {
-
-	const [
-		repositories,
-		pinnedNames,
-		vercelProjects
-	] = await Promise.all([
-		getRepos(username),
-		getPinnedRepos(username),
-		getVercelProjects()
-	]);
-
-	// interested only in the project name, link, framework and description
-	// interested only in Vercel projects that are linked to GitHub repositories
-	const vercelProjectsDetails = vercelProjects.projects
-		.filter(project => {
-			const githubRepo = repositories.find(repo => repo.name === project.name);
-			return githubRepo;
-		})
-		.map((project) => ({
-			framework: project.framework,
-			name: project.name,
-			nodeVersion: project.nodeVersion,
-			link: project.link,
-			description: project.description,
-		}));
-
-	// For Vercel projects, add the framework to the GitHub repository info object.
-	repositories.forEach(repo => {
-		const vercelRepo = vercelProjectsDetails.find(vercelRepo => vercelRepo.name === repo.name);
-		if (vercelRepo) {
-			repo.vercel = vercelRepo;
-		}
-	});
-
-	// const heroes = repositories.filter((project) => data.projects.heroNames.includes(project.name)).sort((a, b) => b.stargazers_count - a.stargazers_count);
-	const heroes = repositories.filter((project) => pinnedNames.includes(project.name)).sort((a, b) => b.stargazers_count - a.stargazers_count);
-	const sorted = repositories
-		.filter((p) => !p.private)
-		.filter((p) => !p.fork)
-		.filter((p) => !p.archived)
-		// .filter((p) => p.name !== username)
-		.filter((p) => !pinnedNames.includes(p.name))
-		.filter((p) => !data.projects.blacklist.includes(p.name))
-		.sort(
-			(a, b) =>
-				new Date(b.updated_at ?? Number.POSITIVE_INFINITY).getTime() -
-				new Date(a.updated_at ?? Number.POSITIVE_INFINITY).getTime(),
-		);
+	const { heroes, sorted } = await getProjectsPageData(username);
 
 	const chunkSize = Math.ceil(sorted.length / 3);
 	return (

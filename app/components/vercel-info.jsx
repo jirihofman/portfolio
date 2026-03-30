@@ -1,5 +1,4 @@
 import Image from 'next/image';
-import { getNextjsLatestRelease, getRepositoryPackageJson, checkAppJsxExistence, getRepositoryFrameworks } from '../data';
 import Popover from './popover';
 import { RiTailwindCssFill } from "react-icons/ri";
 import { SiReactbootstrap } from 'react-icons/si';
@@ -13,6 +12,10 @@ import { MdUpgrade } from "react-icons/md";
  */
 function compareVersions(version1, version2) {
     const parseVersion = (v) => {
+        if (typeof v !== 'string') {
+            return [0];
+        }
+
         // Remove any leading 'v' and split by dots
         const cleaned = v.replace(/^v/, '').split('.');
         return cleaned.map(num => parseInt(num, 10) || 0);
@@ -34,25 +37,13 @@ function compareVersions(version1, version2) {
     return 0;
 }
 
-export const VercelInfo = async ({ info }) => {
-
-	// Try to get real data, fall back gracefully if APIs fail
-	let nextjsLatestRelease, pJson, repositoryFrameworks = [], isRouterPages = false, isRouterApp = false;
-	
-	try {
-		nextjsLatestRelease = await getNextjsLatestRelease();
-		pJson = await getRepositoryPackageJson(info.owner.login, info.name);
-		const routerInfo = await checkAppJsxExistence(info.owner.login, info.name);
-		isRouterPages = routerInfo.isRouterPages;
-		isRouterApp = routerInfo.isRouterApp;
-		repositoryFrameworks = await getRepositoryFrameworks(info.owner.login, info.name);
-	} catch (error) {
-		console.log('API error, falling back gracefully:', error.message);
-		// Fallback to empty data - component will still show Vercel info
-		nextjsLatestRelease = {};
-		pJson = null;
-		repositoryFrameworks = [];
-	}
+export const VercelInfo = ({ info }) => {
+	const details = info.details || {};
+	const nextjsLatestRelease = details.nextjsLatestRelease || {};
+	const pJson = details.packageJson || null;
+	const repositoryFrameworks = details.repositoryFrameworks || [];
+	const isRouterPages = details.isRouterPages || false;
+	const isRouterApp = details.isRouterApp || false;
 	
 	// Legacy Next.js handling for backward compatibility with Vercel framework detection
 	const nextjsVersion = pJson?.dependencies?.next?.replace('^', '').replace('~', '');
@@ -113,7 +104,7 @@ export const VercelInfo = async ({ info }) => {
 		));
 
 	// Legacy upgrade icon for Next.js (for Vercel-detected projects)
-	const legacyUpgradeIcon = info.framework === 'nextjs' && nextjsVersion && compareVersions(nextjsVersion, nextjsLatestRelease.tagName) < 0
+	const legacyUpgradeIcon = info.framework === 'nextjs' && nextjsVersion && nextjsLatestRelease.tagName && compareVersions(nextjsVersion, nextjsLatestRelease.tagName) < 0
 		? <Popover button={<MdUpgrade color='white' size={'20'} className='-mb-1' />} content={<span><p><strong>Upgrade available</strong></p>Next.js: {nextjsVersion} ➡️ {nextjsLatestRelease.tagName}</span>} />
 		: null;
 
