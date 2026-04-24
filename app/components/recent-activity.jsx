@@ -89,7 +89,7 @@ export const CopilotActivity = async ({ username }) => {
     return (
         <div>
             <span className="text-sm flex items-center justify-center gap-1">
-                I like working with Copilot <SiGithubcopilot className="w-4 h-4 inline" /> - merged {copilotPRCount} Copilot PR{copilotPRCount === 1 ? '' : 's'} and {codexPRCount} Codex PR{codexPRCount === 1 ? '' : 's'} with the "codex" label
+                I&apos;ve been shipping with Copilot <SiGithubcopilot className="w-4 h-4 inline" /> and Codex <img src="/codex-icon.svg" alt="Codex" className="w-4 h-4 inline" /> — that&apos;s {copilotPRCount} merged Copilot PR{copilotPRCount === 1 ? '' : 's'} and {codexPRCount} of my merged PR{codexPRCount === 1 ? '' : 's'} tagged <code>codex</code>.
             </span>
         </div>
     );
