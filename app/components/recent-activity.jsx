@@ -1,4 +1,4 @@
-import { getRecentUserActivity, getCopilotPRsAccountWide } from "../data";
+import { getRecentUserActivity, getCopilotPRsAccountWide, getCodexLabeledPRsAccountWide } from "../data";
 import { SiGithubcopilot } from 'react-icons/si';
 
 
@@ -77,16 +77,19 @@ export const RecentActivity = async ({ username }) => {
 };
 
 export const CopilotActivity = async ({ username }) => {
-    const copilotPRCount = await getCopilotPRsAccountWide(username);
+    const [copilotPRCount, codexPRCount] = await Promise.all([
+        getCopilotPRsAccountWide(username),
+        getCodexLabeledPRsAccountWide(username),
+    ]);
 
-    if (copilotPRCount === 0) {
+    if (copilotPRCount === 0 && codexPRCount === 0) {
         return null;
     }
 
     return (
         <div>
             <span className="text-sm flex items-center justify-center gap-1">
-                I like working with Copilot <SiGithubcopilot className="w-4 h-4 inline" /> - merged {copilotPRCount} Copilot PR{copilotPRCount === 1 ? '' : 's'}
+                I like working with Copilot <SiGithubcopilot className="w-4 h-4 inline" /> - merged {copilotPRCount} Copilot PR{copilotPRCount === 1 ? '' : 's'} and {codexPRCount} Codex PR{codexPRCount === 1 ? '' : 's'} with the "codex" label
             </span>
         </div>
     );
