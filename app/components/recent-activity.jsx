@@ -1,4 +1,4 @@
-import { getRecentUserActivity, getCopilotPRsAccountWide } from "../data";
+import { getRecentUserActivity, getCopilotPRsAccountWide, getCodexLabeledPRsAccountWide } from "../data";
 import { SiGithubcopilot } from 'react-icons/si';
 
 
@@ -77,16 +77,19 @@ export const RecentActivity = async ({ username }) => {
 };
 
 export const CopilotActivity = async ({ username }) => {
-    const copilotPRCount = await getCopilotPRsAccountWide(username);
+    const [copilotPRCount, codexPRCount] = await Promise.all([
+        getCopilotPRsAccountWide(username),
+        getCodexLabeledPRsAccountWide(username),
+    ]);
 
-    if (copilotPRCount === 0) {
+    if (copilotPRCount === 0 && codexPRCount === 0) {
         return null;
     }
 
     return (
         <div>
             <span className="text-sm flex items-center justify-center gap-1">
-                I like working with Copilot <SiGithubcopilot className="w-4 h-4 inline" /> - merged {copilotPRCount} Copilot PR{copilotPRCount === 1 ? '' : 's'}
+                I&apos;ve been shipping with Copilot <SiGithubcopilot className="w-4 h-4 inline" /> and Codex <img src="/codex-icon.svg" alt="Codex" className="w-4 h-4 inline" /> — that&apos;s {copilotPRCount} merged Copilot PR{copilotPRCount === 1 ? '' : 's'} and {codexPRCount} of my merged PR{codexPRCount === 1 ? '' : 's'} tagged <code>codex</code>.
             </span>
         </div>
     );
