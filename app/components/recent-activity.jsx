@@ -1,5 +1,6 @@
 import { getRecentUserActivity, getCopilotPRsAccountWide, getCodexLabeledPRsAccountWide } from "../data";
 import { SiGithubcopilot } from 'react-icons/si';
+import { SiOpenai } from 'react-icons/si';
 
 
 export const RecentActivity = async ({ username }) => {
@@ -88,9 +89,17 @@ export const CopilotActivity = async ({ username }) => {
 
     return (
         <div>
-            <span className="text-sm flex items-center justify-center gap-1">
-                I&apos;ve been shipping with Copilot <SiGithubcopilot className="w-4 h-4 inline" /> and Codex <img src="/codex-icon.svg" alt="Codex" className="w-4 h-4 inline" /> — that&apos;s {copilotPRCount} merged Copilot PR{copilotPRCount === 1 ? '' : 's'} and {codexPRCount} of my merged PR{codexPRCount === 1 ? '' : 's'} tagged <code>codex</code>.
-            </span>
+            <p className="text-sm max-w-3xl mx-auto leading-relaxed">
+                I&apos;ve been shipping with
+                <span className="inline-flex items-center gap-1 mx-1">
+                    Copilot <SiGithubcopilot className="w-4 h-4" aria-label="GitHub Copilot icon" />
+                </span>
+                and
+                <span className="inline-flex items-center gap-1 mx-1">
+                    Codex <SiOpenai className="w-4 h-4 text-cyan-300" aria-label="Codex icon" />
+                </span>
+                — that&apos;s {copilotPRCount} merged Copilot PR{copilotPRCount === 1 ? '' : 's'} and {codexPRCount} of my merged PR{codexPRCount === 1 ? '' : 's'} tagged <code>codex</code>.
+            </p>
         </div>
     );
 };
