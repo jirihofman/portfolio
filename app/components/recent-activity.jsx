@@ -87,9 +87,20 @@ export const CopilotActivity = async ({ username }) => {
     }
 
     return (
-        <div>
-            <span className="text-sm flex items-center justify-center gap-1">
-                I&apos;ve been shipping with Copilot <SiGithubcopilot className="w-4 h-4 inline" /> and Codex <img src="/codex-icon.svg" alt="Codex" className="w-4 h-4 inline" /> — that&apos;s {copilotPRCount} merged Copilot PR{copilotPRCount === 1 ? '' : 's'} and {codexPRCount} of my merged PR{codexPRCount === 1 ? '' : 's'} tagged <code>codex</code>.
+        <div className="text-sm flex flex-col items-center gap-1.5">
+            <span className="flex flex-wrap items-center justify-center gap-2 text-center">
+                <span>I&apos;ve been shipping with</span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/5 px-2 py-0.5">
+                    <SiGithubcopilot className="w-4 h-4" />
+                    Copilot
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-cyan-400/35 bg-cyan-500/10 px-2 py-0.5 text-cyan-100">
+                    <img src="/codex-icon.svg" alt="Codex" className="w-4 h-4" />
+                    Codex
+                </span>
+            </span>
+            <span className="text-center">
+                That&apos;s {copilotPRCount} merged Copilot PR{copilotPRCount === 1 ? '' : 's'} and {codexPRCount} of my merged PR{codexPRCount === 1 ? '' : 's'} tagged <code>codex</code>.
             </span>
         </div>
     );
