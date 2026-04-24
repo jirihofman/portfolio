@@ -87,10 +87,23 @@ export const CopilotActivity = async ({ username }) => {
     }
 
     return (
-        <div>
-            <span className="text-sm flex items-center justify-center gap-1">
-                I&apos;ve been shipping with Copilot <SiGithubcopilot className="w-4 h-4 inline" /> and Codex <img src="/codex-icon.svg" alt="Codex" className="w-4 h-4 inline" /> — that&apos;s {copilotPRCount} merged Copilot PR{copilotPRCount === 1 ? '' : 's'} and {codexPRCount} of my merged PR{codexPRCount === 1 ? '' : 's'} tagged <code>codex</code>.
-            </span>
+        <div className="mt-2">
+            <div className="text-sm text-zinc-400 flex flex-wrap items-center justify-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-700/70 bg-zinc-900/50 px-2.5 py-1">
+                    <SiGithubcopilot className="w-4 h-4 text-zinc-300" />
+                    <span>
+                        Copilot: <strong className="text-zinc-200">{copilotPRCount}</strong> merged PR{copilotPRCount === 1 ? '' : 's'}
+                    </span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-700/70 bg-zinc-900/50 px-2.5 py-1">
+                    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-400/10 ring-1 ring-emerald-300/30">
+                        <img src="/codex-icon.svg" alt="Codex" className="w-3 h-3 text-emerald-300" />
+                    </span>
+                    <span>
+                        Codex: <strong className="text-zinc-200">{codexPRCount}</strong> merged PR{codexPRCount === 1 ? '' : 's'} tagged <code className="text-emerald-300">codex</code>
+                    </span>
+                </span>
+            </div>
         </div>
     );
 };
