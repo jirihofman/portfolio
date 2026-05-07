@@ -2,6 +2,10 @@ import { getRecentUserActivity, getCopilotPRsAccountWide, getCodexCoauthoredComm
 import { SiGithubcopilot } from 'react-icons/si';
 import { SiOpenai } from 'react-icons/si';
 
+function joinWithAnd(items) {
+    return items.flatMap((item, index) => index === 0 ? [item] : [' and ', item]);
+}
+
 
 export const RecentActivity = async ({ username }) => {
 
@@ -100,7 +104,7 @@ export const CopilotActivity = async ({ username }) => {
     if (codexCoauthoredCommitCount > 0) {
         contributionParts.push(
             <span key="codex">
-                {codexCoauthoredCommitCount} commit{codexCoauthoredCommitCount === 1 ? '' : 's'} with <code>Co-authored-by: Codex</code>
+                {codexCoauthoredCommitCount} commit{codexCoauthoredCommitCount === 1 ? '' : 's'} with <code aria-label="Co-authored-by Codex commit trailer">Co-authored-by: Codex</code>
             </span>
         );
     }
@@ -123,8 +127,8 @@ export const CopilotActivity = async ({ username }) => {
         );
     }
 
-    const contributionSummary = contributionParts.flatMap((part, index) => index === 0 ? [part] : [' and ', part]);
-    const toolSummary = toolBadges.flatMap((badge, index) => index === 0 ? [badge] : [' and ', badge]);
+    const contributionSummary = joinWithAnd(contributionParts);
+    const toolSummary = joinWithAnd(toolBadges);
 
     return (
         <div>
