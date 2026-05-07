@@ -104,7 +104,7 @@ export const CopilotActivity = async ({ username }) => {
     if (codexCoauthoredCommitCount > 0) {
         contributionParts.push(
             <span key="codex">
-                {codexCoauthoredCommitCount} commit{codexCoauthoredCommitCount === 1 ? '' : 's'} with <code aria-label="Co-authored-by Codex commit trailer">Co-authored-by: Codex</code>
+                {codexCoauthoredCommitCount} commit{codexCoauthoredCommitCount === 1 ? '' : 's'} with <code>Co-authored-by: Codex</code>
             </span>
         );
     }
