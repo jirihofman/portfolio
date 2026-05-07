@@ -1,4 +1,4 @@
-import { getRecentUserActivity, getCopilotPRsAccountWide, getCodexCoauthoredCommitsAccountWide } from "../data";
+import { getRecentUserActivity, getCopilotPRsAccountWide, getCodexCoauthoredCommitsAccountWide, getCodexLabeledPRsAccountWide } from "../data";
 import { SiGithubcopilot } from 'react-icons/si';
 import { SiOpenai } from 'react-icons/si';
 
@@ -82,12 +82,15 @@ export const RecentActivity = async ({ username }) => {
 };
 
 export const CopilotActivity = async ({ username }) => {
-    const [copilotPRCount, codexCoauthoredCommitCount] = await Promise.all([
+    const [copilotPRCount, codexCoauthoredCommitCount, codexLabeledPRCount] = await Promise.all([
         getCopilotPRsAccountWide(username),
         getCodexCoauthoredCommitsAccountWide(username),
+        getCodexLabeledPRsAccountWide(username),
     ]);
 
-    if (copilotPRCount === 0 && codexCoauthoredCommitCount === 0) {
+    const codexCount = codexCoauthoredCommitCount + codexLabeledPRCount;
+
+    if (copilotPRCount === 0 && codexCount === 0) {
         return null;
     }
 
@@ -101,10 +104,10 @@ export const CopilotActivity = async ({ username }) => {
         );
     }
 
-    if (codexCoauthoredCommitCount > 0) {
+    if (codexCount > 0) {
         contributionParts.push(
             <span key="codex">
-                {codexCoauthoredCommitCount} commit{codexCoauthoredCommitCount === 1 ? '' : 's'} with <code>Co-authored-by: Codex</code>
+                {codexCount} Codex contribution{codexCount === 1 ? '' : 's'}
             </span>
         );
     }
@@ -119,7 +122,7 @@ export const CopilotActivity = async ({ username }) => {
         );
     }
 
-    if (codexCoauthoredCommitCount > 0) {
+    if (codexCount > 0) {
         toolBadges.push(
             <span key="codex" className="inline-flex items-center gap-1 mx-1">
                 Codex <SiOpenai className="w-4 h-4 text-cyan-300" aria-label="Codex icon" />

@@ -200,6 +200,14 @@ function buildCodexCoauthoredCommitSearchQuery(username) {
     return `author:${username} "Co-authored-by: Codex"`;
 }
 
+function buildCodexLabeledAccountSearchQuery(username) {
+    if (typeof username !== 'string' || !/^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/.test(username)) {
+        return null;
+    }
+
+    return `is:pr is:merged author:${username} label:codex`;
+}
+
 // TODO: Implement option to switch between info for authenticated user and other users.
 export const getUser = unstable_cache(async (username) => {
     console.log('Fetching user data for', username);
@@ -800,6 +808,43 @@ export const getCodexCoauthoredCommitsAccountWide = unstable_cache(async (userna
         console.timeEnd('getCodexCoauthoredCommitsAccountWide');
     }
 }, (username) => ['getCodexCoauthoredCommitsAccountWide', username], { revalidate: HOURS_12 });
+
+/**
+ * Get the total number of merged pull requests authored by the user that have the "codex" label.
+ * Uses GitHub GraphQL API to search account-wide (not repository-specific).
+ * @param {string} username GitHub username
+ * @returns {number} Number of merged, codex-labeled PRs authored by the user
+ */
+export const getCodexLabeledPRsAccountWide = unstable_cache(async (username) => {
+    console.log(`Fetching account-wide codex-labeled PRs for ${username}`);
+    console.time('getCodexLabeledPRsAccountWide');
+
+    try {
+        const query = buildCodexLabeledAccountSearchQuery(username);
+
+        if (!query) {
+            return 0;
+        }
+
+        const response = await fetchGitHubGraphQL(`
+            query CodexLabeledMergedPRsAccountWide($q: String!) {
+                search(type: ISSUE, query: $q, first: 1) {
+                    issueCount
+                }
+            }
+        `, { q: query }, {
+            context: `account-wide codex-labeled PRs for ${username}`,
+            fallback: { search: { issueCount: 0 } },
+        });
+
+        return response.search?.issueCount || 0;
+    } catch (error) {
+        console.error(`Error getting account-wide codex-labeled PRs for ${username}:`, error);
+        return 0;
+    } finally {
+        console.timeEnd('getCodexLabeledPRsAccountWide');
+    }
+}, (username) => ['getCodexLabeledPRsAccountWide', username], { revalidate: HOURS_12 });
 
 /**
  * Detects frameworks from package.json dependencies and devDependencies
