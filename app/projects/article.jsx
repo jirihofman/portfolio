@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { FaGithub } from "react-icons/fa";
 import { GoDependabot, GoEye, GoEyeClosed, GoStar } from 'react-icons/go';
-import { SiGithubcopilot } from 'react-icons/si';
+import { SiGithubcopilot, SiOpenai } from 'react-icons/si';
 import { VercelInfo } from "../components/vercel-info";
 
 export const Article = ({ project }) => {
@@ -11,11 +11,13 @@ export const Article = ({ project }) => {
     const viewsData = ownerMetrics?.views;
     const alertsData = ownerMetrics?.openAlertsBySeverity;
     const copilotPRCount = ownerMetrics?.copilotPRCount;
+    const codexCount = ownerMetrics?.codexCount;
 
     /** Repository visitors info. */
     let views = <span title="Can't get traffic data for someone else's repo." className="flex items-center gap-1"><GoEyeClosed className="w-4 h-4" /></span>;
     let alerts = <span title="Can't get alerts data for someone else's repo."><GoDependabot className="w-4 h-4" /></span>;
     let copilotPRs = <span title="Can't get Copilot data for someone else's repo."><SiGithubcopilot className="w-4 h-4" /></span>;
+    let codexContributions = <span title="Can't get Codex data for someone else's repo."><SiOpenai className="w-4 h-4" /></span>;
     if (viewsData) {
         const { todayUniques = 0, sumUniques = 0 } = viewsData;
         views = <span title="Unique repository visitors: Last 14 days / Yesterday (GitHub API has 24-hour delay)." className="flex items-center gap-1">
@@ -45,6 +47,19 @@ export const Article = ({ project }) => {
         >
             <SiGithubcopilot className="w-4 h-4" />{" "}
             {Intl.NumberFormat("en-US", { notation: "compact" }).format(copilotPRCount)}
+        </Link>;
+    }
+
+    if (codexCount !== null && codexCount !== undefined) {
+        codexContributions = <Link
+            href={`https://github.com/${project.owner.login}/${project.name}/pulls?q=is%3Apr+is%3Amerged+label%3Acodex`}
+            title={`Codex contributions: ${codexCount} (labeled PRs + co-authored commits; link shows labeled PRs)`}
+            className="flex items-center gap-1 hover:text-blue-500"
+            target="_blank"
+            rel="noopener noreferrer"
+        >
+            <SiOpenai className="w-4 h-4" />{" "}
+            {Intl.NumberFormat("en-US", { notation: "compact" }).format(codexCount)}
         </Link>;
     }
 
@@ -86,6 +101,8 @@ export const Article = ({ project }) => {
                     {alerts}
                     {" "}
                     {copilotPRs}
+                    {" "}
+                    {codexContributions}
                 </span>
             </div>
             <div className="flex justify-between gap-2 items-center float-right mt-2 border-t-2 border-gray-700 border-opacity-50">

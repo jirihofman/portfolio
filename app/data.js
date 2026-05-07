@@ -11,6 +11,7 @@ const HOURS_24 = 60 * 60 * 24;
 const GITHUB_API_URL = 'https://api.github.com';
 const GITHUB_GRAPHQL_URL = `${GITHUB_API_URL}/graphql`;
 const COPILOT_GRAPHQL_BATCH_SIZE = 20;
+const CODEX_GRAPHQL_BATCH_SIZE = 10;
 const PORTFOLIO_OWNER_USERNAME = process.env.GITHUB_USERNAME || data.githubUsername;
 
 function cloneFallbackValue(fallback) {
@@ -206,6 +207,31 @@ function buildCodexLabeledAccountSearchQuery(username) {
     }
 
     return `is:pr is:merged author:${username} label:codex`;
+}
+
+function buildCodexLabeledPRRepoSearchQuery(username, reponame) {
+    if (typeof username !== 'string' || typeof reponame !== 'string') {
+        return null;
+    }
+
+    if (!/^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/.test(username) || !/^[a-zA-Z0-9._-]{1,100}$/.test(reponame)) {
+        return null;
+    }
+
+    return `is:pr is:merged author:${username} label:codex repo:${username}/${reponame}`;
+}
+
+function buildCodexCoauthoredCommitRepoSearchQuery(username, reponame) {
+    if (typeof username !== 'string' || typeof reponame !== 'string') {
+        return null;
+    }
+
+    if (!/^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/.test(username) || !/^[a-zA-Z0-9._-]{1,100}$/.test(reponame)) {
+        return null;
+    }
+
+    // Matches commits using the exact "Co-authored-by: Codex" trailer format produced by GitHub Codex.
+    return `author:${username} "Co-authored-by: Codex" repo:${username}/${reponame}`;
 }
 
 // TODO: Implement option to switch between info for authenticated user and other users.
@@ -590,6 +616,58 @@ async function getCopilotPRCounts(repositories) {
     return counts.reduce((acc, chunkResult) => Object.assign(acc, chunkResult), {});
 }
 
+async function fetchCodexCountChunk(repositories) {
+    const searchableRepositories = repositories.filter((project) =>
+        buildCodexLabeledPRRepoSearchQuery(project.owner?.login, project.name)
+    );
+
+    if (!searchableRepositories.length) {
+        return {};
+    }
+
+    const variableDefinitions = searchableRepositories.flatMap((_, index) => [
+        `$pr${index}: String!`,
+        `$commit${index}: String!`,
+    ]).join(', ');
+    const searches = searchableRepositories.map((_, index) => `
+        pr${index}: search(type: ISSUE, query: $pr${index}, first: 1) {
+            issueCount
+        }
+        commit${index}: search(type: COMMIT, query: $commit${index}, first: 1) {
+            issueCount
+        }
+    `).join('\n');
+    const variables = Object.fromEntries(
+        searchableRepositories.flatMap((project, index) => [
+            [`pr${index}`, buildCodexLabeledPRRepoSearchQuery(project.owner.login, project.name)],
+            [`commit${index}`, buildCodexCoauthoredCommitRepoSearchQuery(project.owner.login, project.name)],
+        ])
+    );
+
+    const response = await fetchGitHubGraphQL(`
+        query BatchCodexCounts(${variableDefinitions}) {
+            ${searches}
+        }
+    `, variables, {
+        context: `batched Codex counts for ${searchableRepositories.length} repositories`,
+        fallback: {},
+        next: { revalidate: HOURS_12 },
+    });
+
+    return searchableRepositories.reduce((acc, project, index) => {
+        // GitHub GraphQL API uses 'issueCount' for all search result counts, including COMMIT searches.
+        const prCount = response[`pr${index}`]?.issueCount ?? 0;
+        const commitCount = response[`commit${index}`]?.issueCount ?? 0;
+        acc[getRepositoryKey(project)] = prCount + commitCount;
+        return acc;
+    }, {});
+}
+
+async function getCodexCounts(repositories) {
+    const counts = await Promise.all(chunkItems(repositories, CODEX_GRAPHQL_BATCH_SIZE).map(fetchCodexCountChunk));
+    return counts.reduce((acc, chunkResult) => Object.assign(acc, chunkResult), {});
+}
+
 async function getRepositoryVercelDetails(username, reponame, nextjsLatestRelease) {
     try {
         const [packageJson, routerInfo, repositoryFrameworks] = await Promise.all([
@@ -614,8 +692,9 @@ async function getRepositoryVercelDetails(username, reponame, nextjsLatestReleas
 async function enrichProjectsForCards(projects) {
     const ownerProjects = projects.filter((project) => isOwnedRepository(project, PORTFOLIO_OWNER_USERNAME));
     const hasVercelProjects = projects.some((project) => project.vercel);
-    const [copilotPRCounts, nextjsLatestRelease] = await Promise.all([
+    const [copilotPRCounts, codexCounts, nextjsLatestRelease] = await Promise.all([
         getCopilotPRCounts(ownerProjects),
+        getCodexCounts(ownerProjects),
         hasVercelProjects ? getNextjsLatestRelease() : Promise.resolve({}),
     ]);
 
@@ -635,6 +714,7 @@ async function enrichProjectsForCards(projects) {
                 views,
                 openAlertsBySeverity,
                 copilotPRCount: isOwnerRepo ? (copilotPRCounts[getRepositoryKey(project)] ?? null) : null,
+                codexCount: isOwnerRepo ? (codexCounts[getRepositoryKey(project)] ?? null) : null,
             },
             vercel: project.vercel ? {
                 ...project.vercel,
