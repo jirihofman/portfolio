@@ -192,12 +192,12 @@ function buildCopilotAccountSearchQuery(username) {
     return `is:pr is:merged author:copilot-swe-agent[bot] involves:${username}`;
 }
 
-function buildCodexLabeledAccountSearchQuery(username) {
+function buildCodexCoauthoredCommitSearchQuery(username) {
     if (typeof username !== 'string' || !/^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/.test(username)) {
         return null;
     }
 
-    return `is:pr is:merged author:${username} label:codex`;
+    return `author:${username} "Co-authored-by: Codex"`;
 }
 
 // TODO: Implement option to switch between info for authenticated user and other users.
@@ -769,41 +769,37 @@ export const getCopilotPRsAccountWide = unstable_cache(async (username) => {
 }, (username) => ['getCopilotPRsAccountWide', username], { revalidate: HOURS_12 });
 
 /**
- * Get the total number of merged pull requests authored by the user that have the "codex" label.
- * Uses GitHub GraphQL API to search account-wide (not repository-specific).
+ * Get the total number of commits authored by the user that include the "Co-authored-by: Codex" trailer.
+ * Uses GitHub commit search account-wide (not repository-specific).
  * @param {string} username GitHub username
- * @returns {number} Number of merged, codex-labeled PRs authored by the user
+ * @returns {number} Number of commits authored by the user that were co-authored by Codex
  */
-export const getCodexLabeledPRsAccountWide = unstable_cache(async (username) => {
-    console.log(`Fetching account-wide codex-labeled PRs for ${username}`);
-    console.time('getCodexLabeledPRsAccountWide');
+export const getCodexCoauthoredCommitsAccountWide = unstable_cache(async (username) => {
+    console.log(`Fetching account-wide Codex co-authored commits for ${username}`);
+    console.time('getCodexCoauthoredCommitsAccountWide');
 
     try {
-        const query = buildCodexLabeledAccountSearchQuery(username);
+        const query = buildCodexCoauthoredCommitSearchQuery(username);
 
         if (!query) {
             return 0;
         }
 
-        const response = await fetchGitHubGraphQL(`
-            query CodexLabeledMergedPRsAccountWide($q: String!) {
-                search(type: ISSUE, query: $q, first: 1) {
-                    issueCount
-                }
-            }
-        `, { q: query }, {
-            context: `account-wide codex-labeled PRs for ${username}`,
-            fallback: { search: { issueCount: 0 } },
+        const response = await fetchGitHubJson(`${GITHUB_API_URL}/search/commits?q=${encodeURIComponent(query)}&per_page=1`, {
+            context: `account-wide Codex co-authored commits for ${username}`,
+            fallback: { total_count: 0 },
+            headers: { Accept: 'application/vnd.github.cloak-preview+json' },
+            next: { revalidate: HOURS_12 },
         });
 
-        return response.search?.issueCount || 0;
+        return typeof response?.total_count === 'number' ? response.total_count : 0;
     } catch (error) {
-        console.error(`Error getting account-wide codex-labeled PRs for ${username}:`, error);
+        console.error(`Error getting account-wide Codex co-authored commits for ${username}:`, error);
         return 0;
     } finally {
-        console.timeEnd('getCodexLabeledPRsAccountWide');
+        console.timeEnd('getCodexCoauthoredCommitsAccountWide');
     }
-}, (username) => ['getCodexLabeledPRsAccountWide', username], { revalidate: HOURS_12 });
+}, (username) => ['getCodexCoauthoredCommitsAccountWide', username], { revalidate: HOURS_12 });
 
 /**
  * Detects frameworks from package.json dependencies and devDependencies

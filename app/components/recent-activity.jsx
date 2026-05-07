@@ -1,4 +1,4 @@
-import { getRecentUserActivity, getCopilotPRsAccountWide, getCodexLabeledPRsAccountWide } from "../data";
+import { getRecentUserActivity, getCopilotPRsAccountWide, getCodexCoauthoredCommitsAccountWide } from "../data";
 import { SiGithubcopilot } from 'react-icons/si';
 import { SiOpenai } from 'react-icons/si';
 
@@ -78,27 +78,58 @@ export const RecentActivity = async ({ username }) => {
 };
 
 export const CopilotActivity = async ({ username }) => {
-    const [copilotPRCount, codexPRCount] = await Promise.all([
+    const [copilotPRCount, codexCoauthoredCommitCount] = await Promise.all([
         getCopilotPRsAccountWide(username),
-        getCodexLabeledPRsAccountWide(username),
+        getCodexCoauthoredCommitsAccountWide(username),
     ]);
 
-    if (copilotPRCount === 0 && codexPRCount === 0) {
+    if (copilotPRCount === 0 && codexCoauthoredCommitCount === 0) {
         return null;
     }
+
+    const contributionParts = [];
+
+    if (copilotPRCount > 0) {
+        contributionParts.push(
+            <span key="copilot">
+                {copilotPRCount} merged Copilot PR{copilotPRCount === 1 ? '' : 's'}
+            </span>
+        );
+    }
+
+    if (codexCoauthoredCommitCount > 0) {
+        contributionParts.push(
+            <span key="codex">
+                {codexCoauthoredCommitCount} commit{codexCoauthoredCommitCount === 1 ? '' : 's'} with <code>Co-authored-by: Codex</code>
+            </span>
+        );
+    }
+
+    const toolBadges = [];
+
+    if (copilotPRCount > 0) {
+        toolBadges.push(
+            <span key="copilot" className="inline-flex items-center gap-1 mx-1">
+                Copilot <SiGithubcopilot className="w-4 h-4" aria-label="GitHub Copilot icon" />
+            </span>
+        );
+    }
+
+    if (codexCoauthoredCommitCount > 0) {
+        toolBadges.push(
+            <span key="codex" className="inline-flex items-center gap-1 mx-1">
+                Codex <SiOpenai className="w-4 h-4 text-cyan-300" aria-label="Codex icon" />
+            </span>
+        );
+    }
+
+    const contributionSummary = contributionParts.flatMap((part, index) => index === 0 ? [part] : [' and ', part]);
+    const toolSummary = toolBadges.flatMap((badge, index) => index === 0 ? [badge] : [' and ', badge]);
 
     return (
         <div>
             <p className="text-sm max-w-3xl mx-auto leading-relaxed">
-                I&apos;ve been shipping with
-                <span className="inline-flex items-center gap-1 mx-1">
-                    Copilot <SiGithubcopilot className="w-4 h-4" aria-label="GitHub Copilot icon" />
-                </span>
-                and
-                <span className="inline-flex items-center gap-1 mx-1">
-                    Codex <SiOpenai className="w-4 h-4 text-cyan-300" aria-label="Codex icon" />
-                </span>
-                — that&apos;s {copilotPRCount} merged Copilot PR{copilotPRCount === 1 ? '' : 's'} and {codexPRCount} of my merged PR{codexPRCount === 1 ? '' : 's'} tagged <code>codex</code>.
+                I&apos;ve been shipping with {toolSummary} — that&apos;s {contributionSummary}.
             </p>
         </div>
     );
