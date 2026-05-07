@@ -192,6 +192,14 @@ function buildCopilotAccountSearchQuery(username) {
     return `is:pr is:merged author:copilot-swe-agent[bot] involves:${username}`;
 }
 
+function buildCodexCoauthoredCommitSearchQuery(username) {
+    if (typeof username !== 'string' || !/^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/.test(username)) {
+        return null;
+    }
+
+    return `author:${username} "Co-authored-by: Codex"`;
+}
+
 function buildCodexLabeledAccountSearchQuery(username) {
     if (typeof username !== 'string' || !/^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/.test(username)) {
         return null;
@@ -767,6 +775,39 @@ export const getCopilotPRsAccountWide = unstable_cache(async (username) => {
         console.timeEnd('getCopilotPRsAccountWide');
     }
 }, (username) => ['getCopilotPRsAccountWide', username], { revalidate: HOURS_12 });
+
+/**
+ * Get the total number of commits authored by the user that include the "Co-authored-by: Codex" trailer.
+ * Uses GitHub commit search account-wide (not repository-specific).
+ * @param {string} username GitHub username
+ * @returns {number} Number of commits authored by the user that were co-authored by Codex
+ */
+export const getCodexCoauthoredCommitsAccountWide = unstable_cache(async (username) => {
+    console.log(`Fetching account-wide Codex co-authored commits for ${username}`);
+    console.time('getCodexCoauthoredCommitsAccountWide');
+
+    try {
+        const query = buildCodexCoauthoredCommitSearchQuery(username);
+
+        if (!query) {
+            return 0;
+        }
+
+        const response = await fetchGitHubJson(`${GITHUB_API_URL}/search/commits?q=${encodeURIComponent(query)}&per_page=1`, {
+            context: `account-wide Codex co-authored commits for ${username}`,
+            fallback: { total_count: 0 },
+            headers: { Accept: 'application/vnd.github.cloak-preview+json' },
+            next: { revalidate: HOURS_12 },
+        });
+
+        return typeof response?.total_count === 'number' ? response.total_count : 0;
+    } catch (error) {
+        console.error(`Error getting account-wide Codex co-authored commits for ${username}:`, error);
+        return 0;
+    } finally {
+        console.timeEnd('getCodexCoauthoredCommitsAccountWide');
+    }
+}, (username) => ['getCodexCoauthoredCommitsAccountWide', username], { revalidate: HOURS_12 });
 
 /**
  * Get the total number of merged pull requests authored by the user that have the "codex" label.
