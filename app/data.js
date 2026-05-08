@@ -221,19 +221,6 @@ function buildCodexLabeledPRRepoSearchQuery(username, reponame) {
     return `is:pr is:merged author:${username} label:codex repo:${username}/${reponame}`;
 }
 
-function buildCodexCoauthoredCommitRepoSearchQuery(username, reponame) {
-    if (typeof username !== 'string' || typeof reponame !== 'string') {
-        return null;
-    }
-
-    if (!/^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/.test(username) || !/^[a-zA-Z0-9._-]{1,100}$/.test(reponame)) {
-        return null;
-    }
-
-    // Matches commits using the exact "Co-authored-by: Codex" trailer format produced by GitHub Codex.
-    return `author:${username} "Co-authored-by: Codex" repo:${username}/${reponame}`;
-}
-
 // TODO: Implement option to switch between info for authenticated user and other users.
 export const getUser = unstable_cache(async (username) => {
     console.log('Fetching user data for', username);
@@ -625,22 +612,18 @@ async function fetchCodexCountChunk(repositories) {
         return {};
     }
 
-    const variableDefinitions = searchableRepositories.flatMap((_, index) => [
-        `$pr${index}: String!`,
-        `$commit${index}: String!`,
-    ]).join(', ');
+    // Note: GitHub's GraphQL SearchType enum only supports ISSUE, REPOSITORY, USER, and DISCUSSION.
+    // Commit search (type: COMMIT) is not available via GraphQL and must use the REST API instead.
+    // Here we only count labeled PRs; commit-based counting is handled separately via REST if needed.
+    const variableDefinitions = searchableRepositories.map((_, index) => `$pr${index}: String!`).join(', ');
     const searches = searchableRepositories.map((_, index) => `
         pr${index}: search(type: ISSUE, query: $pr${index}, first: 1) {
             issueCount
         }
-        commit${index}: search(type: COMMIT, query: $commit${index}, first: 1) {
-            issueCount
-        }
     `).join('\n');
     const variables = Object.fromEntries(
-        searchableRepositories.flatMap((project, index) => [
-            [`pr${index}`, buildCodexLabeledPRRepoSearchQuery(project.owner.login, project.name)],
-            [`commit${index}`, buildCodexCoauthoredCommitRepoSearchQuery(project.owner.login, project.name)],
+        searchableRepositories.map((project, index) => [
+            `pr${index}`, buildCodexLabeledPRRepoSearchQuery(project.owner.login, project.name),
         ])
     );
 
@@ -655,10 +638,7 @@ async function fetchCodexCountChunk(repositories) {
     });
 
     return searchableRepositories.reduce((acc, project, index) => {
-        // GitHub GraphQL API uses 'issueCount' for all search result counts, including COMMIT searches.
-        const prCount = response[`pr${index}`]?.issueCount ?? 0;
-        const commitCount = response[`commit${index}`]?.issueCount ?? 0;
-        acc[getRepositoryKey(project)] = prCount + commitCount;
+        acc[getRepositoryKey(project)] = response[`pr${index}`]?.issueCount ?? 0;
         return acc;
     }, {});
 }
