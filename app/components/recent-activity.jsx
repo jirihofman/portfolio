@@ -117,7 +117,7 @@ export const CopilotActivity = async ({ username }) => {
     if (copilotPRCount > 0) {
         toolBadges.push(
             <span key="copilot" className="inline-flex items-center gap-1 mx-1">
-                Copilot <SiGithubcopilot className="w-4 h-4" aria-label="GitHub Copilot icon" />
+                Copilot <SiGithubcopilot className="w-4 h-4 text-[#8534F3]" aria-label="GitHub Copilot icon" />
             </span>
         );
     }

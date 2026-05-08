@@ -16,8 +16,8 @@ export const Article = ({ project }) => {
     /** Repository visitors info. */
     let views = <span title="Can't get traffic data for someone else's repo." className="flex items-center gap-1"><GoEyeClosed className="w-4 h-4" /></span>;
     let alerts = <span title="Can't get alerts data for someone else's repo."><GoDependabot className="w-4 h-4" /></span>;
-    let copilotPRs = <span title="Can't get Copilot data for someone else's repo."><SiGithubcopilot className="w-4 h-4" /></span>;
-    let codexContributions = <span title="Can't get Codex data for someone else's repo."><SiOpenai className="w-4 h-4" /></span>;
+    let copilotPRs = <span title="Can't get Copilot data for someone else's repo."><SiGithubcopilot className="w-3.5 h-3.5 text-[#8534F3]" /></span>;
+    let codexContributions = <span title="Can't get Codex data for someone else's repo."><SiOpenai className="w-3.5 h-3.5 text-cyan-300" /></span>;
     if (viewsData) {
         const { todayUniques = 0, sumUniques = 0 } = viewsData;
         views = <span title="Unique repository visitors: Last 14 days / Yesterday (GitHub API has 24-hour delay)." className="flex items-center gap-1">
@@ -45,7 +45,7 @@ export const Article = ({ project }) => {
             target="_blank"
             rel="noopener noreferrer"
         >
-            <SiGithubcopilot className="w-4 h-4" />{" "}
+            <SiGithubcopilot className="w-3.5 h-3.5 text-[#8534F3]" />{" "}
             {Intl.NumberFormat("en-US", { notation: "compact" }).format(copilotPRCount)}
         </Link>;
     }
@@ -58,7 +58,7 @@ export const Article = ({ project }) => {
             target="_blank"
             rel="noopener noreferrer"
         >
-            <SiOpenai className="w-4 h-4" />{" "}
+            <SiOpenai className="w-3.5 h-3.5 text-cyan-300" />{" "}
             {Intl.NumberFormat("en-US", { notation: "compact" }).format(codexCount)}
         </Link>;
     }
