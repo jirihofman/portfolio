@@ -7,10 +7,11 @@ My personal portfolio website, built with [Next.js](https://nextjs.org/), [Tailw
 It is supposed to be used as a **template for other GitHub users' portfolios**. Data about user and projects are gathered via GitHub and Vercel API.
 
 ## Tech stack
-- **Framework**: [Next.js](https://nextjs.org/) 16.1.1
+- **Framework**: [Next.js](https://nextjs.org/) 16.2.4
 - **Deployment**: [Vercel](https://vercel.com)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com) 4.1.12
+- **Styling**: [Tailwind CSS](https://tailwindcss.com) 4.2.4
 - **UI**: [React](https://react.dev/) 19.2.3
+- **Icons**: [React Icons](https://react-icons.github.io/react-icons/) 5.6.0
 
 ## Project Information Features
 
@@ -26,7 +27,7 @@ The portfolio automatically displays comprehensive information for each reposito
 ### Repository Analytics (for your own repositories)
 - **Visitor statistics**: Unique repository visitors in the last 14 days and today
 - **Security alerts**: Dependabot alerts categorized by severity (critical, high, medium, low)
-- **AI assistance**: Count of merged Copilot pull requests in the last 2 weeks
+- **AI agent contributions**: Counts of merged GitHub Copilot pull requests and Codex contributions, including labeled PRs and co-authored commits
 
 ### Deployment & Technology Detection
 - **Vercel integration**: Shows deployment status, Node.js version, and framework info
@@ -37,9 +38,9 @@ The portfolio automatically displays comprehensive information for each reposito
 - **UI library detection**: Automatically identifies Tailwind CSS, React Bootstrap, Primer, and other libraries from package.json
 
 ### Data Sources
-- **GitHub API**: Repository information, traffic data, security alerts, pull requests
+- **GitHub API**: Repository information, traffic data, security alerts, pull requests, and AI agent contribution signals
 - **Vercel API**: Deployment information and project details
-- **GraphQL queries**: Pinned repositories and organization data
+- **GraphQL queries**: Pinned repositories, organization data, Copilot-authored merged pull requests, Codex-labeled merged pull requests, and Codex co-authored commits
 
 All data is cached and refreshed automatically to ensure good performance while providing up-to-date information.
 
@@ -97,13 +98,13 @@ When using this template for your own portfolio:
 
 After cloning or forking this repository, you may want to remove all template-specific functionality and references to the original author. This will prepare the repository to be your own personal portfolio without any template reversion logic.
 
-**Using GitHub Copilot or AI Agent:**
+**Using GitHub Copilot, Codex, or another AI agent:**
 
-If you have access to GitHub Copilot Workspace or another AI coding agent, you can use the removal prompt:
+If you have access to GitHub Copilot Workspace, Codex, or another AI coding agent, you can use the removal prompt:
 
 ```bash
 # Copy the prompt content and provide it to your AI agent
-cat .github/prompts/remove-template.md
+cat .github/prompts/remove-template.prompt.md
 ```
 
 The AI agent will:
