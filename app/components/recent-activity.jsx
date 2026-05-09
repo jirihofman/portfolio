@@ -44,7 +44,6 @@ export const RecentActivity = async ({ username }) => {
         return acc;
     }, {});
 
-    // End result: I pushed 2 commits and reviewed 1 PR.
     const activitySummaryString = Object.keys(activitySummary).map((key) => {
         const value = activitySummary[key];
         if (key === 'commits' && value) {
@@ -71,7 +70,7 @@ export const RecentActivity = async ({ username }) => {
     return (
         <div>
             <span className="text-sm">
-                {activitySummaryString && 'From recent public GitHub activity, I ' + activitySummaryString + ' in public repositories.'}
+                {activitySummaryString && 'Recent public output: ' + activitySummaryString + '.'}
             </span>
             {/* {JSON.stringify(recentUserActivity.map(a => a.payload?.review && Object.keys(a.payload?.review).join()), null, 4)} */}
             {/* {JSON.stringify(Object.keys(recentUserActivity[4]).join(), null, 4)} */}
@@ -136,7 +135,7 @@ export const CopilotActivity = async ({ username }) => {
     return (
         <div>
             <p className="text-sm max-w-3xl mx-auto leading-relaxed">
-                I&apos;ve been shipping with {toolSummary} — that&apos;s {contributionSummary}.
+                AI-assisted delivery signals: {contributionSummary} using {toolSummary}.
             </p>
         </div>
     );
