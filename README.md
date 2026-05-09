@@ -7,10 +7,10 @@ My personal portfolio website, built with [Next.js](https://nextjs.org/), [Tailw
 It is supposed to be used as a **template for other GitHub users' portfolios**. Data about user and projects are gathered via GitHub and Vercel API.
 
 ## Tech stack
-- **Framework**: [Next.js](https://nextjs.org/) 16.2.4
+- **Framework**: [Next.js](https://nextjs.org/) 16.2.6
 - **Deployment**: [Vercel](https://vercel.com)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com) 4.2.4
-- **UI**: [React](https://react.dev/) 19.2.3
+- **Styling**: [Tailwind CSS](https://tailwindcss.com) 4.3.0
+- **UI**: [React](https://react.dev/) 19.2.6
 - **Icons**: [React Icons](https://react-icons.github.io/react-icons/) 5.6.0
 
 ## Project Information Features
