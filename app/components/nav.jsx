@@ -35,12 +35,14 @@ export const Navigation = () => {
 					<div className="flex justify-between gap-8 text-base">
 						<Link
 							href={"/projects" + (customUsername ? `?customUsername=${customUsername}` : '')}
+							prefetch={true}
 							className="duration-200 text-zinc-400 hover:text-zinc-100 relative block"
 						>
 							<span className="inline-flex items-center">Projects <LoadingIndicator /></span>
 						</Link>
 						<Link
 							href={"/contact" + (customUsername ? `?customUsername=${customUsername}` : '')}
+							prefetch={true}
 							className="duration-200 text-zinc-400 hover:text-zinc-100 relative block"
 						>
 							<span className="inline-flex items-center">Contact <LoadingIndicator /></span>
