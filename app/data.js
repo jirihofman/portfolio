@@ -12,6 +12,7 @@ const GITHUB_API_URL = 'https://api.github.com';
 const GITHUB_GRAPHQL_URL = `${GITHUB_API_URL}/graphql`;
 const COPILOT_GRAPHQL_BATCH_SIZE = 20;
 const CODEX_GRAPHQL_BATCH_SIZE = 10;
+const CLAUDE_GRAPHQL_BATCH_SIZE = 10;
 const PORTFOLIO_OWNER_USERNAME = process.env.GITHUB_USERNAME || data.githubUsername;
 
 function cloneFallbackValue(fallback) {
@@ -201,12 +202,28 @@ function buildCodexCoauthoredCommitSearchQuery(username) {
     return `author:${username} "Co-authored-by: Codex"`;
 }
 
+function buildClaudeCoauthoredCommitSearchQuery(username) {
+    if (typeof username !== 'string' || !/^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/.test(username)) {
+        return null;
+    }
+
+    return `author:${username} "Co-authored-by: Claude"`;
+}
+
 function buildCodexLabeledAccountSearchQuery(username) {
     if (typeof username !== 'string' || !/^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/.test(username)) {
         return null;
     }
 
     return `is:pr is:merged author:${username} label:codex`;
+}
+
+function buildClaudeLabeledAccountSearchQuery(username) {
+    if (typeof username !== 'string' || !/^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/.test(username)) {
+        return null;
+    }
+
+    return `is:pr is:merged author:${username} label:claude`;
 }
 
 function buildCodexLabeledPRRepoSearchQuery(username, reponame) {
@@ -219,6 +236,18 @@ function buildCodexLabeledPRRepoSearchQuery(username, reponame) {
     }
 
     return `is:pr is:merged author:${username} label:codex repo:${username}/${reponame}`;
+}
+
+function buildClaudeLabeledPRRepoSearchQuery(username, reponame) {
+    if (typeof username !== 'string' || typeof reponame !== 'string') {
+        return null;
+    }
+
+    if (!/^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/.test(username) || !/^[a-zA-Z0-9._-]{1,100}$/.test(reponame)) {
+        return null;
+    }
+
+    return `is:pr is:merged author:${username} label:claude repo:${username}/${reponame}`;
 }
 
 // TODO: Implement option to switch between info for authenticated user and other users.
@@ -648,6 +677,49 @@ async function getCodexCounts(repositories) {
     return counts.reduce((acc, chunkResult) => Object.assign(acc, chunkResult), {});
 }
 
+async function fetchClaudeCountChunk(repositories) {
+    const searchableRepositories = repositories.filter((project) =>
+        buildClaudeLabeledPRRepoSearchQuery(project.owner?.login, project.name)
+    );
+
+    if (!searchableRepositories.length) {
+        return {};
+    }
+
+    // GitHub GraphQL cannot search commits, so repository card counts are based on labeled PRs.
+    const variableDefinitions = searchableRepositories.map((_, index) => `$pr${index}: String!`).join(', ');
+    const searches = searchableRepositories.map((_, index) => `
+        pr${index}: search(type: ISSUE, query: $pr${index}, first: 1) {
+            issueCount
+        }
+    `).join('\n');
+    const variables = Object.fromEntries(
+        searchableRepositories.map((project, index) => [
+            `pr${index}`, buildClaudeLabeledPRRepoSearchQuery(project.owner.login, project.name),
+        ])
+    );
+
+    const response = await fetchGitHubGraphQL(`
+        query BatchClaudeCounts(${variableDefinitions}) {
+            ${searches}
+        }
+    `, variables, {
+        context: `batched Claude counts for ${searchableRepositories.length} repositories`,
+        fallback: {},
+        next: { revalidate: HOURS_12 },
+    });
+
+    return searchableRepositories.reduce((acc, project, index) => {
+        acc[getRepositoryKey(project)] = response[`pr${index}`]?.issueCount ?? 0;
+        return acc;
+    }, {});
+}
+
+async function getClaudeCounts(repositories) {
+    const counts = await Promise.all(chunkItems(repositories, CLAUDE_GRAPHQL_BATCH_SIZE).map(fetchClaudeCountChunk));
+    return counts.reduce((acc, chunkResult) => Object.assign(acc, chunkResult), {});
+}
+
 async function getRepositoryVercelDetails(username, reponame, nextjsLatestRelease) {
     try {
         const [packageJson, routerInfo, repositoryFrameworks] = await Promise.all([
@@ -672,9 +744,10 @@ async function getRepositoryVercelDetails(username, reponame, nextjsLatestReleas
 async function enrichProjectsForCards(projects) {
     const ownerProjects = projects.filter((project) => isOwnedRepository(project, PORTFOLIO_OWNER_USERNAME));
     const hasVercelProjects = projects.some((project) => project.vercel);
-    const [copilotPRCounts, codexCounts, nextjsLatestRelease] = await Promise.all([
+    const [copilotPRCounts, codexCounts, claudeCounts, nextjsLatestRelease] = await Promise.all([
         getCopilotPRCounts(ownerProjects),
         getCodexCounts(ownerProjects),
+        getClaudeCounts(ownerProjects),
         hasVercelProjects ? getNextjsLatestRelease() : Promise.resolve({}),
     ]);
 
@@ -695,6 +768,7 @@ async function enrichProjectsForCards(projects) {
                 openAlertsBySeverity,
                 copilotPRCount: isOwnerRepo ? (copilotPRCounts[getRepositoryKey(project)] ?? null) : null,
                 codexCount: isOwnerRepo ? (codexCounts[getRepositoryKey(project)] ?? null) : null,
+                claudeCount: isOwnerRepo ? (claudeCounts[getRepositoryKey(project)] ?? null) : null,
             },
             vercel: project.vercel ? {
                 ...project.vercel,
@@ -870,6 +944,39 @@ export const getCodexCoauthoredCommitsAccountWide = unstable_cache(async (userna
 }, (username) => ['getCodexCoauthoredCommitsAccountWide', username], { revalidate: HOURS_12 });
 
 /**
+ * Get the total number of commits authored by the user that include the "Co-authored-by: Claude" trailer.
+ * Uses GitHub commit search account-wide (not repository-specific).
+ * @param {string} username GitHub username
+ * @returns {number} Number of commits authored by the user that were co-authored by Claude
+ */
+export const getClaudeCoauthoredCommitsAccountWide = unstable_cache(async (username) => {
+    console.log(`Fetching account-wide Claude co-authored commits for ${username}`);
+    console.time('getClaudeCoauthoredCommitsAccountWide');
+
+    try {
+        const query = buildClaudeCoauthoredCommitSearchQuery(username);
+
+        if (!query) {
+            return 0;
+        }
+
+        const response = await fetchGitHubJson(`${GITHUB_API_URL}/search/commits?q=${encodeURIComponent(query)}&per_page=1`, {
+            context: `account-wide Claude co-authored commits for ${username}`,
+            fallback: { total_count: 0 },
+            headers: { Accept: 'application/vnd.github.cloak-preview+json' },
+            next: { revalidate: HOURS_12 },
+        });
+
+        return typeof response?.total_count === 'number' ? response.total_count : 0;
+    } catch (error) {
+        console.error(`Error getting account-wide Claude co-authored commits for ${username}:`, error);
+        return 0;
+    } finally {
+        console.timeEnd('getClaudeCoauthoredCommitsAccountWide');
+    }
+}, (username) => ['getClaudeCoauthoredCommitsAccountWide', username], { revalidate: HOURS_12 });
+
+/**
  * Get the total number of merged pull requests authored by the user that have the "codex" label.
  * Uses GitHub GraphQL API to search account-wide (not repository-specific).
  * @param {string} username GitHub username
@@ -905,6 +1012,43 @@ export const getCodexLabeledPRsAccountWide = unstable_cache(async (username) => 
         console.timeEnd('getCodexLabeledPRsAccountWide');
     }
 }, (username) => ['getCodexLabeledPRsAccountWide', username], { revalidate: HOURS_12 });
+
+/**
+ * Get the total number of merged pull requests authored by the user that have the "claude" label.
+ * Uses GitHub GraphQL API to search account-wide (not repository-specific).
+ * @param {string} username GitHub username
+ * @returns {number} Number of merged, claude-labeled PRs authored by the user
+ */
+export const getClaudeLabeledPRsAccountWide = unstable_cache(async (username) => {
+    console.log(`Fetching account-wide claude-labeled PRs for ${username}`);
+    console.time('getClaudeLabeledPRsAccountWide');
+
+    try {
+        const query = buildClaudeLabeledAccountSearchQuery(username);
+
+        if (!query) {
+            return 0;
+        }
+
+        const response = await fetchGitHubGraphQL(`
+            query ClaudeLabeledMergedPRsAccountWide($q: String!) {
+                search(type: ISSUE, query: $q, first: 1) {
+                    issueCount
+                }
+            }
+        `, { q: query }, {
+            context: `account-wide claude-labeled PRs for ${username}`,
+            fallback: { search: { issueCount: 0 } },
+        });
+
+        return response.search?.issueCount || 0;
+    } catch (error) {
+        console.error(`Error getting account-wide claude-labeled PRs for ${username}:`, error);
+        return 0;
+    } finally {
+        console.timeEnd('getClaudeLabeledPRsAccountWide');
+    }
+}, (username) => ['getClaudeLabeledPRsAccountWide', username], { revalidate: HOURS_12 });
 
 /**
  * Detects frameworks from package.json dependencies and devDependencies
