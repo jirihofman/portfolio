@@ -1,6 +1,14 @@
-import { getRecentUserActivity, getCopilotPRsAccountWide, getCodexCoauthoredCommitsAccountWide, getCodexLabeledPRsAccountWide } from "../data";
+import {
+    getRecentUserActivity,
+    getCopilotPRsAccountWide,
+    getCodexCoauthoredCommitsAccountWide,
+    getCodexLabeledPRsAccountWide,
+    getClaudeCoauthoredCommitsAccountWide,
+    getClaudeLabeledPRsAccountWide,
+} from "../data";
 import { SiGithubcopilot } from 'react-icons/si';
 import { SiOpenai } from 'react-icons/si';
+import { SiClaude } from 'react-icons/si';
 
 function joinWithAnd(items) {
     return items.flatMap((item, index) => index === 0 ? [item] : [' and ', item]);
@@ -81,61 +89,53 @@ export const RecentActivity = async ({ username }) => {
 };
 
 export const CopilotActivity = async ({ username }) => {
-    const [copilotPRCount, codexCoauthoredCommitCount, codexLabeledPRCount] = await Promise.all([
+    const [copilotPRCount, codexCoauthoredCommitCount, codexLabeledPRCount, claudeCoauthoredCommitCount, claudeLabeledPRCount] = await Promise.all([
         getCopilotPRsAccountWide(username),
         getCodexCoauthoredCommitsAccountWide(username),
         getCodexLabeledPRsAccountWide(username),
+        getClaudeCoauthoredCommitsAccountWide(username),
+        getClaudeLabeledPRsAccountWide(username),
     ]);
 
     const codexCount = codexCoauthoredCommitCount + codexLabeledPRCount;
+    const claudeCount = claudeCoauthoredCommitCount + claudeLabeledPRCount;
 
-    if (copilotPRCount === 0 && codexCount === 0) {
+    if (copilotPRCount === 0 && codexCount === 0 && claudeCount === 0) {
         return null;
     }
 
-    const contributionParts = [];
+    const agentParts = [];
 
     if (copilotPRCount > 0) {
-        contributionParts.push(
-            <span key="copilot">
-                {copilotPRCount} merged Copilot PR{copilotPRCount === 1 ? '' : 's'}
-            </span>
-        );
-    }
-
-    if (codexCount > 0) {
-        contributionParts.push(
-            <span key="codex">
-                {codexCount} Codex contribution{codexCount === 1 ? '' : 's'}
-            </span>
-        );
-    }
-
-    const toolBadges = [];
-
-    if (copilotPRCount > 0) {
-        toolBadges.push(
+        agentParts.push(
             <span key="copilot" className="inline-flex items-center gap-1 mx-1">
-                Copilot <SiGithubcopilot className="w-4 h-4 text-[#8534F3]" aria-label="GitHub Copilot icon" />
+                Copilot <SiGithubcopilot className="w-4 h-4 text-[#8534F3]" aria-label="GitHub Copilot icon" /> ({copilotPRCount} merged PR{copilotPRCount === 1 ? '' : 's'})
             </span>
         );
     }
 
     if (codexCount > 0) {
-        toolBadges.push(
+        agentParts.push(
             <span key="codex" className="inline-flex items-center gap-1 mx-1">
-                Codex <SiOpenai className="w-4 h-4 text-cyan-300" aria-label="Codex icon" />
+                Codex <SiOpenai className="w-4 h-4 text-cyan-300" aria-label="Codex icon" /> ({codexCount} contribution{codexCount === 1 ? '' : 's'})
             </span>
         );
     }
 
-    const contributionSummary = joinWithAnd(contributionParts);
-    const toolSummary = joinWithAnd(toolBadges);
+    if (claudeCount > 0) {
+        agentParts.push(
+            <span key="claude" className="inline-flex items-center gap-1 mx-1">
+                Claude <SiClaude className="w-4 h-4 text-orange-300" aria-label="Claude icon" /> ({claudeCount} contribution{claudeCount === 1 ? '' : 's'})
+            </span>
+        );
+    }
+
+    const agentSummary = joinWithAnd(agentParts);
 
     return (
         <div>
             <p className="text-sm max-w-3xl mx-auto leading-relaxed">
-                AI-assisted delivery signals: {contributionSummary} using {toolSummary}.
+                AI-assisted delivery signals: {agentSummary}.
             </p>
         </div>
     );

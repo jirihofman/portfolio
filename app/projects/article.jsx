@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { FaGithub } from "react-icons/fa";
 import { GoDependabot, GoEye, GoEyeClosed, GoStar } from 'react-icons/go';
-import { SiGithubcopilot, SiOpenai } from 'react-icons/si';
+import { SiClaude, SiGithubcopilot, SiOpenai } from 'react-icons/si';
 import { VercelInfo } from "../components/vercel-info";
 
 export const Article = ({ project }) => {
@@ -12,12 +12,14 @@ export const Article = ({ project }) => {
     const alertsData = ownerMetrics?.openAlertsBySeverity;
     const copilotPRCount = ownerMetrics?.copilotPRCount;
     const codexCount = ownerMetrics?.codexCount;
+    const claudeCount = ownerMetrics?.claudeCount;
 
     /** Repository visitors info. */
     let views = <span title="Can't get traffic data for someone else's repo." className="flex items-center gap-1"><GoEyeClosed className="w-4 h-4" /></span>;
     let alerts = <span title="Can't get alerts data for someone else's repo."><GoDependabot className="w-4 h-4" /></span>;
     let copilotPRs = <span title="Can't get Copilot data for someone else's repo."><SiGithubcopilot className="w-3.5 h-3.5 text-[#8534F3]" /></span>;
     let codexContributions = <span title="Can't get Codex data for someone else's repo."><SiOpenai className="w-3.5 h-3.5 text-cyan-300" /></span>;
+    let claudeContributions = <span title="Can't get Claude data for someone else's repo."><SiClaude className="w-3.5 h-3.5 text-orange-300" /></span>;
     if (viewsData) {
         const { todayUniques = 0, sumUniques = 0 } = viewsData;
         views = <span title="Unique repository visitors: Last 14 days / Yesterday (GitHub API has 24-hour delay)." className="flex items-center gap-1">
@@ -63,6 +65,19 @@ export const Article = ({ project }) => {
         </Link>;
     }
 
+    if (claudeCount !== null && claudeCount !== undefined) {
+        claudeContributions = <Link
+            href={`https://github.com/${project.owner.login}/${project.name}/pulls?q=is%3Apr+is%3Amerged+label%3Aclaude`}
+            title={`Claude contributions: ${claudeCount} (labeled PRs)`}
+            className="flex items-center gap-1 hover:text-blue-500"
+            target="_blank"
+            rel="noopener noreferrer"
+        >
+            <SiClaude className="w-3.5 h-3.5 text-orange-300" />{" "}
+            {Intl.NumberFormat("en-US", { notation: "compact" }).format(claudeCount)}
+        </Link>;
+    }
+
     return (
         <article className="p-4 md:p-8">
             <div className="flex justify-between gap-2 items-center">
@@ -103,6 +118,8 @@ export const Article = ({ project }) => {
                     {copilotPRs}
                     {" "}
                     {codexContributions}
+                    {" "}
+                    {claudeContributions}
                 </span>
             </div>
             <div className="flex justify-between gap-2 items-center float-right mt-2 border-t-2 border-gray-700 border-opacity-50">
