@@ -9,6 +9,9 @@
     "start": "next start",
     "setup": "node ./lib/setup.mjs"
   },
+  "engines": {
+    "node": "24.x"
+  },
   "dependencies": {
     "@tailwindcss/postcss": "^4.3.2",
     "dotenv": "^17.4.2",
