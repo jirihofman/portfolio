@@ -2,16 +2,17 @@
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/import?repository-url=https%3A%2F%2Fgithub.com%2Fjirihofman%2Fportfolio&env=GH_TOKEN,VC_TOKEN)
 
-My personal portfolio website, built with [Next.js](https://nextjs.org/), [Tailwind CSS](https://tailwindcss.com/) and deployed to [Vercel](https://vercel.com/). Based on [chronark's site](https://chronark.com/). Some ideas borrowed from [leerob/leerob.io](https://github.com/leerob/leerob.io).
+My personal portfolio website, built with [Next.js](https://nextjs.org/), [Tailwind CSS](https://tailwindcss.com/) and deployed to [Vercel](https://vercel.com/). Based on [chronark's site](https://[...]
 
 It is supposed to be used as a **template for other GitHub users' portfolios**. Data about user and projects are gathered via GitHub and Vercel API.
 
 ## Tech stack
-- **Framework**: [Next.js](https://nextjs.org/) 16.2.6
+- **Framework**: [Next.js](https://nextjs.org/) 16.2.10
 - **Deployment**: [Vercel](https://vercel.com)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com) 4.3.0
+- **Styling**: [Tailwind CSS](https://tailwindcss.com) 4.3.1
 - **UI**: [React](https://react.dev/) 19.2.6
-- **Icons**: [React Icons](https://react-icons.github.io/react-icons/) 5.6.0
+- **Icons**: [React Icons](https://react-icons.github.io/react-icons/) 5.7.0
+- **Node.js**: 24.x
 
 ## Project Information Features
 
@@ -96,7 +97,7 @@ When using this template for your own portfolio:
 
 ### Removing Template Functionality
 
-After cloning or forking this repository, you may want to remove all template-specific functionality and references to the original author. This will prepare the repository to be your own personal portfolio without any template reversion logic.
+After cloning or forking this repository, you may want to remove all template-specific functionality and references to the original author. This will prepare the repository to be your own personal portfolio.
 
 **Using GitHub Copilot, Codex, or another AI agent:**
 
