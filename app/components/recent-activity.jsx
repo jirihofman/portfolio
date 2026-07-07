@@ -8,7 +8,7 @@ import {
 } from "../data";
 import { SiGithubcopilot } from 'react-icons/si';
 import { SiClaude } from 'react-icons/si';
-import { FaRobot } from 'react-icons/fa';
+import { CodexIcon } from './codex-icon';
 
 function joinWithAnd(items) {
     return items.flatMap((item, index) => index === 0 ? [item] : [' and ', item]);
@@ -117,7 +117,7 @@ export const CopilotActivity = async ({ username }) => {
     if (codexCount > 0) {
         agentParts.push(
             <span key="codex" className="inline-flex items-center gap-1 mx-1">
-                Codex <FaRobot className="w-4 h-4 text-cyan-300" aria-label="Codex icon" /> ({codexCount} contribution{codexCount === 1 ? '' : 's'})
+                Codex <CodexIcon className="w-4 h-4 text-cyan-300" /> ({codexCount} contribution{codexCount === 1 ? '' : 's'})
             </span>
         );
     }

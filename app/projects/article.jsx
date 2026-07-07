@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { FaGithub, FaRobot } from "react-icons/fa";
+import { FaGithub } from "react-icons/fa";
 import { GoDependabot, GoEye, GoEyeClosed, GoStar } from 'react-icons/go';
 import { SiClaude, SiGithubcopilot } from 'react-icons/si';
 import { VercelInfo } from "../components/vercel-info";
+import { CodexIcon } from "../components/codex-icon";
 
 export const Article = ({ project }) => {
 
@@ -18,7 +19,7 @@ export const Article = ({ project }) => {
     let views = <span title="Can't get traffic data for someone else's repo." className="flex items-center gap-1"><GoEyeClosed className="w-4 h-4" /></span>;
     let alerts = <span title="Can't get alerts data for someone else's repo."><GoDependabot className="w-4 h-4" /></span>;
     let copilotPRs = <span title="Can't get Copilot data for someone else's repo."><SiGithubcopilot className="w-3.5 h-3.5 text-[#8534F3]" /></span>;
-    let codexContributions = <span title="Can't get Codex data for someone else's repo."><FaRobot className="w-3.5 h-3.5 text-cyan-300" /></span>;
+    let codexContributions = <span title="Can't get Codex data for someone else's repo."><CodexIcon className="w-3.5 h-3.5 text-cyan-300" /></span>;
     let claudeContributions = <span title="Can't get Claude data for someone else's repo."><SiClaude className="w-3.5 h-3.5 text-orange-300" /></span>;
     if (viewsData) {
         const { todayUniques = 0, sumUniques = 0 } = viewsData;
@@ -60,7 +61,7 @@ export const Article = ({ project }) => {
             target="_blank"
             rel="noopener noreferrer"
         >
-            <FaRobot className="w-3.5 h-3.5 text-cyan-300" />{" "}
+            <CodexIcon className="w-3.5 h-3.5 text-cyan-300" />{" "}
             {Intl.NumberFormat("en-US", { notation: "compact" }).format(codexCount)}
         </Link>;
     }
