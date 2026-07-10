@@ -1,5 +1,6 @@
 import {
     getRecentUserActivity,
+    getPublishedReleaseSummary,
     getCopilotPRsAccountWide,
     getCodexCoauthoredCommitsAccountWide,
     getCodexLabeledPRsAccountWide,
@@ -17,7 +18,10 @@ function joinWithAnd(items) {
 
 export const RecentActivity = async ({ username }) => {
 
-    const recentUserActivity = await getRecentUserActivity(username);
+    const [recentUserActivity, publishedReleaseSummary] = await Promise.all([
+        getRecentUserActivity(username),
+        getPublishedReleaseSummary(username),
+    ]);
     const activitySummary = recentUserActivity.reduce((acc, activity) => {
 
         if (activity.type === 'PushEvent') {
@@ -80,6 +84,9 @@ export const RecentActivity = async ({ username }) => {
             <span className="text-sm">
                 {activitySummaryString && 'Recent public output: ' + activitySummaryString + '.'}
             </span>
+            <div className="text-sm">
+                Published {publishedReleaseSummary.releaseCount} GitHub release{publishedReleaseSummary.releaseCount === 1 ? '' : 's'} across {publishedReleaseSummary.repositoryCount} public repositor{publishedReleaseSummary.repositoryCount === 1 ? 'y' : 'ies'}.
+            </div>
             {/* {JSON.stringify(recentUserActivity.map(a => a.payload?.review && Object.keys(a.payload?.review).join()), null, 4)} */}
             {/* {JSON.stringify(Object.keys(recentUserActivity[4]).join(), null, 4)} */}
             {/* {JSON.stringify(recentUserActivity.filter(a => a.type === 'PullRequestEvent')[2], null, 4)} */}
