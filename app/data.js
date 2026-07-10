@@ -6,6 +6,7 @@ import data from '../data.json';
 const revalidate = 60;
 const MINUTES_5 = 60 * 5;
 const HOURS_1 = 60 * 60;
+const HOURS_6 = 60 * 60 * 6;
 const HOURS_12 = 60 * 60 * 12;
 const HOURS_24 = 60 * 60 * 24;
 const GITHUB_API_URL = 'https://api.github.com';
@@ -532,6 +533,52 @@ export const getRecentUserActivity = unstable_cache(async (username) => {
     console.timeEnd('getRecentUserActivity');
     return response;
 }, (username) => ['getRecentUserActivity', username], { revalidate: MINUTES_5 });
+
+export const getPublishedReleaseSummary = unstable_cache(async (username) => {
+    let after = null;
+    let releaseCount = 0;
+    let repositoryCount = 0;
+
+    do {
+        const response = await fetchGitHubGraphQL(`
+            query GetPublishedReleaseSummary($username: String!, $after: String) {
+                user(login: $username) {
+                    repositories(
+                        first: 100
+                        after: $after
+                        ownerAffiliations: OWNER
+                        privacy: PUBLIC
+                    ) {
+                        pageInfo {
+                            endCursor
+                            hasNextPage
+                        }
+                        nodes {
+                            releases(first: 1) {
+                                totalCount
+                            }
+                        }
+                    }
+                }
+            }
+        `, { username, after }, {
+            context: `published release summary for ${username}`,
+            fallback: { user: { repositories: { nodes: [], pageInfo: { endCursor: null, hasNextPage: false } } } },
+        });
+
+        const repositories = response.user?.repositories;
+
+        for (const repository of repositories?.nodes ?? []) {
+            const count = repository?.releases?.totalCount ?? 0;
+            releaseCount += count;
+            repositoryCount += count > 0 ? 1 : 0;
+        }
+
+        after = repositories?.pageInfo?.hasNextPage ? repositories.pageInfo.endCursor : null;
+    } while (after);
+
+    return { releaseCount, repositoryCount };
+}, (username) => ['getPublishedReleaseSummary', username], { revalidate: HOURS_6 });
 
 export const getTrafficPageViews = unstable_cache(async (username, reponame) => {
     const response = await fetchGitHubResponse(`${GITHUB_API_URL}/repos/${username}/${reponame}/traffic/views`, {
