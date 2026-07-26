@@ -1,4 +1,4 @@
-import defaultTheme from 'tailwindcss/defaultTheme';
+const defaultTheme = require('tailwindcss/defaultTheme');
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
@@ -27,68 +27,50 @@ module.exports = {
 					"radial-gradient(50% 50% at 50% 50%, var(--tw-gradient-stops))",
 			},
 			animation: {
-				"fade-in": "fade-in 1s ease-in-out forwards",
-				title: "title 1s ease-out forwards",
-				"fade-left": "fade-left 1s ease-in-out forwards",
-				"fade-right": "fade-right 1s ease-in-out forwards",
+				"fade-in": "fade-in 320ms ease-out both",
+				title: "title 420ms cubic-bezier(0.22, 1, 0.36, 1) both",
+				"fade-left": "fade-left 420ms ease-out both",
+				"fade-right": "fade-right 420ms ease-out both",
 			},
 			keyframes: {
 				"fade-in": {
 					"0%": {
-						opacity: "0%",
-					},
-					"75%": {
-						opacity: "0%",
+						opacity: "1",
+						transform: "translateY(0.25rem)",
 					},
 					"100%": {
-						opacity: "100%",
+						opacity: "1",
+						transform: "translateY(0)",
 					},
 				},
 				"fade-left": {
 					"0%": {
-						transform: "translateX(100%)",
-						opacity: "0%",
-					},
-
-					"30%": {
-						transform: "translateX(0%)",
-						opacity: "100%",
+						transform: "translateX(2rem)",
+						opacity: "0",
 					},
 					"100%": {
-						opacity: "0%",
-					},
+						transform: "translateX(0)",
+						opacity: "1",
+					}
 				},
 				"fade-right": {
 					"0%": {
-						transform: "translateX(-100%)",
-						opacity: "0%",
-					},
-
-					"30%": {
-						transform: "translateX(0%)",
-						opacity: "100%",
+						transform: "translateX(-2rem)",
+						opacity: "0",
 					},
 					"100%": {
-						opacity: "0%",
-					},
+						transform: "translateX(0)",
+						opacity: "1",
+					}
 				},
 				title: {
 					"0%": {
-						"line-height": "0%",
-						"letter-spacing": "0.25em",
-						opacity: "0",
+						opacity: "1",
+						transform: "translateY(0.4rem) scale(0.98)",
 					},
-					"25%": {
-						"line-height": "0%",
-						opacity: "0%",
-					},
-					"80%": {
-						opacity: "100%",
-					},
-
 					"100%": {
-						"line-height": "100%",
-						opacity: "100%",
+						opacity: "1",
+						transform: "translateY(0) scale(1)",
 					},
 				},
 			},

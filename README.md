@@ -7,7 +7,7 @@ My personal portfolio website, built with [Next.js](https://nextjs.org/), [Tailw
 It is supposed to be used as a **template for other GitHub users' portfolios**. Data about user and projects are gathered via GitHub and Vercel API.
 
 ## Tech stack
-- **Framework**: [Next.js](https://nextjs.org/) 16.2.10
+- **Framework**: [Next.js](https://nextjs.org/) 16.2.12
 - **Deployment**: [Vercel](https://vercel.com)
 - **Styling**: [Tailwind CSS](https://tailwindcss.com) 4.3.1
 - **UI**: [React](https://react.dev/) 19.2.6
@@ -59,7 +59,7 @@ cp .env.example .env.local
 ```
 Add your tokens to the `.env.local` file:
 ```sh
-# Required: GitHub Personal Access Token (needed for build-time API calls to fetch user data)
+# Optional but recommended: raises GitHub API rate limits and enables owner-only metrics
 GH_TOKEN=YOUR_GH_TOKEN
 
 # Optional: Vercel token to display deployment information
@@ -69,7 +69,7 @@ VC_TOKEN=YOUR_VERCEL_TOKEN
 IS_TEMPLATE=true
 ```
 
-**Note:** `GH_TOKEN` is **required** for the application to build and run. The build process makes GitHub API calls to fetch your username and repository data. Without a valid token, the build will fail.
+**Note:** The application can build and run without `GH_TOKEN` by using the username in `data.json` and unauthenticated GitHub API requests. Add a token for higher rate limits and owner-only data such as traffic and Dependabot metrics.
 
 Then install dependencies and run the development server:
 ```sh
@@ -94,6 +94,7 @@ When using this template for your own portfolio:
    - [ ] `README.md`: Update the link at the top
    - [ ] `app/layout.jsx`: Update metadata (title, description, favicon) - handled by `setup.mjs`
    - [ ] `public/favicon.ico`: Add your own favicon - handled by `setup.mjs`
+   - [ ] `vercel.json`: Select the function region closest to your visitors and upstream APIs
 
 ### Removing Template Functionality
 

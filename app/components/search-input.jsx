@@ -1,82 +1,146 @@
-'use client';
+"use client";
 
-import React, { useState } from "react";
-import { GoSearch } from 'react-icons/go';
+import Link from "next/link";
+import React, { useEffect, useRef, useState } from "react";
+import { GoSearch } from "react-icons/go";
+import {
+	createUserPath,
+	isValidGitHubUsername,
+} from "../user/_lib/username";
 
-const UserSearch = ({ user }) => {
+const UserSearch = ({ user = "" }) => {
+	const [username, setUsername] = useState(user);
+	const [resolvedUsername, setResolvedUsername] = useState("");
+	const [status, setStatus] = useState("idle");
+	const [loading, setLoading] = useState(false);
+	const activeSearch = useRef(null);
 
-    const [username, setUsername] = useState(user);
-    const [userExists, setUserExists] = useState(false);
-    const [loading, setLoading] = useState(false);
+	useEffect(
+		() => () => {
+			activeSearch.current?.abort();
+		},
+		[],
+	);
 
-    const handleUsernameChange = (e) => {
-        setUsername(e.target.value);
-        // Hacky way to reset userExists when username is changed.
-        setUserExists(-1);
-    };
+	const handleUsernameChange = (event) => {
+		activeSearch.current?.abort();
+		activeSearch.current = null;
+		setUsername(event.target.value);
+		setResolvedUsername("");
+		setStatus("idle");
+		setLoading(false);
+	};
 
-    const handleSearch = async () => {
-        setLoading(true);
-        setUserExists(0);
-        if (!username) {
-            setLoading(false);
-            return;
-        }
-        const response = await fetch(`api/users/${username}`);
-        const data = await response.json();
-        setUserExists(data.id);
-        setLoading(false);
-    }
+	const handleSearch = async () => {
+		const candidate = username.trim();
 
-    const newUsername = username !== user && username;
+		if (!isValidGitHubUsername(candidate)) {
+			setResolvedUsername("");
+			setStatus("invalid");
+			return;
+		}
 
-    return (
-        <div className='w-96'>
-            <div className="relative p-6 flex-auto">
-                <label className="block text-white text-sm font-bold mb-1" htmlFor="username">
-                    GitHub username
-                </label>
-                <div className="flex justify-end items-center relative">
-                    <input
-                        placeholder="Search GitHub"
-                        type="text"
-                        className="bg-gray-800 border border-gray-600 rounded-lg p-4 w-full text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        value={username}
-                        onChange={handleUsernameChange}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                handleSearch();
-                            }
-                        }}
-                    />
-                    <span className="absolute mr-2 w-10 cursor-pointer" onClick={handleSearch}>
-                        {loading ? '...' : <GoSearch size={32} />}
-                    </span>
-                </div>
-            </div>
+		activeSearch.current?.abort();
+		const controller = new AbortController();
+		activeSearch.current = controller;
+		setUsername(candidate);
+		setLoading(true);
+		setResolvedUsername("");
+		setStatus("idle");
 
-            {loading ? null :
-                <>
-                    {
-                        userExists > 1 ?
-                            <span className="bg-linear-to-r from-purple-400 to-blue-500 hover:from-pink-500 hover:to-yellow-500 text-transparent bg-clip-text px-6">
-                                <a href={`/?customUsername=${username}`}>
-                                    Preview user: <span className="font-bold">{username}</span>
-                                </a>
-                            </span> :
-                            <span className=" px-6">
-                                {userExists !== -1 && newUsername && newUsername !== user ?
-                                    <span className="text-red-500">User <strong>{newUsername}</strong> not found.</span> :
-                                    <span className="inline-flex items-baseline text-zinc-500">
-                                        <span className="pe-2">Click</span><GoSearch size={16} />
-                                        <span className="ps-2">or pres <kbd>Enter</kbd> to search GitHub.</span>
-                                    </span>}
-                            </span>
-                    }
-                </>
-            }
-        </div>
-    );
+		try {
+			const response = await fetch(
+				`/api/users/${encodeURIComponent(candidate)}`,
+				{ signal: controller.signal },
+			);
+			const userData = response.ok ? await response.json() : null;
+			const found = Boolean(userData?.id);
+
+			setResolvedUsername(found ? candidate : "");
+			setStatus(found ? "found" : "not-found");
+		} catch (error) {
+			if (!controller.signal.aborted) {
+				setResolvedUsername("");
+				setStatus("not-found");
+			}
+		} finally {
+			if (activeSearch.current === controller) {
+				activeSearch.current = null;
+				setLoading(false);
+			}
+		}
+	};
+
+	const previewHref =
+		status === "found" ? createUserPath(resolvedUsername) : null;
+
+	return (
+		<div className="w-96 max-w-[100vw]">
+			<div className="relative p-6 flex-auto">
+				<label
+					className="block text-white text-sm font-bold mb-1"
+					htmlFor="username"
+				>
+					GitHub username
+				</label>
+				<div className="flex justify-end items-center relative">
+					<input
+						id="username"
+						placeholder="Search GitHub"
+						type="text"
+						autoComplete="username"
+						className="bg-gray-800 border border-gray-600 rounded-lg p-4 pe-14 w-full text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+						value={username}
+						onChange={handleUsernameChange}
+						onKeyDown={(event) => {
+							if (event.key === "Enter" && !loading) {
+								handleSearch();
+							}
+						}}
+					/>
+					<button
+						type="button"
+						onClick={handleSearch}
+						disabled={loading}
+						className="absolute right-2 w-10 cursor-pointer disabled:cursor-wait"
+						aria-label="Search GitHub users"
+					>
+						{loading ? "..." : <GoSearch size={32} />}
+					</button>
+				</div>
+			</div>
+
+			<div className="px-6" aria-live="polite" aria-atomic="true">
+				{loading ? (
+					<span className="text-zinc-400">Searching...</span>
+				) : previewHref ? (
+					<Link
+						href={previewHref}
+						className="bg-linear-to-r from-purple-400 to-blue-500 hover:from-pink-500 hover:to-yellow-500 text-transparent bg-clip-text"
+					>
+						Preview user:{" "}
+						<span className="font-bold">{resolvedUsername}</span>
+					</Link>
+				) : status === "invalid" ? (
+					<span className="text-red-500">
+						Enter a valid GitHub username.
+					</span>
+				) : status === "not-found" ? (
+					<span className="text-red-500">
+						User <strong>{username}</strong> not found.
+					</span>
+				) : (
+					<span className="inline-flex items-baseline text-zinc-500">
+						<span className="pe-2">Click</span>
+						<GoSearch size={16} />
+						<span className="ps-2">
+							or press <kbd>Enter</kbd> to search GitHub.
+						</span>
+					</span>
+				)}
+			</div>
+		</div>
+	);
 };
 
 export default UserSearch;
