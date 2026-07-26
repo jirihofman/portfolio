@@ -11,9 +11,7 @@ const HOURS_12 = 60 * 60 * 12;
 const HOURS_24 = 60 * 60 * 24;
 const GITHUB_API_URL = 'https://api.github.com';
 const GITHUB_GRAPHQL_URL = `${GITHUB_API_URL}/graphql`;
-const COPILOT_GRAPHQL_BATCH_SIZE = 20;
-const CODEX_GRAPHQL_BATCH_SIZE = 10;
-const CLAUDE_GRAPHQL_BATCH_SIZE = 10;
+const AGENT_GRAPHQL_BATCH_SIZE = 10;
 const EXTERNAL_FETCH_TIMEOUT_MS = 10_000;
 const PROJECT_ENRICHMENT_CONCURRENCY = 5;
 const PORTFOLIO_OWNER_USERNAME = process.env.GITHUB_USERNAME || data.githubUsername;
@@ -156,11 +154,13 @@ function isOwnedRepository(project, username) {
 
 function createEmptyVercelDetails(nextjsLatestRelease = {}) {
     return {
-        nextjsLatestRelease,
-        packageJson: null,
-        isRouterPages: false,
-        isRouterApp: false,
+        nextjsVersion: '',
+        astroVersion: '',
+        nextjsLatestVersion: nextjsLatestRelease.tagName || '',
+        routerMode: 'none',
         repositoryFrameworks: [],
+        isUsingTurbopack: false,
+        uiLibraries: [],
     };
 }
 
@@ -399,9 +399,9 @@ export const getVercelProjects = unstable_cache(async () => {
         console.error('Vercel API fetch failed:', error);
         return { projects: [] };
     }
-}, ['getVercelProjects'], { revalidate: HOURS_12 });
+}, ['getVercelProjects'], { revalidate: HOURS_24 });
 
-/** Cache revalidated every 12 hours. */
+/** Cache revalidated every 6 hours. */
 export const getNextjsLatestRelease = unstable_cache(async () => {
     const nextjsLatest = await fetchGitHubGraphQL(`
         query GetNextJsLatestRelease($repoName: String!, $owner: String!) {
@@ -425,7 +425,7 @@ export const getNextjsLatestRelease = unstable_cache(async () => {
         tagName: cleanVersionTag(nextjsLatest.repository.latestRelease.tagName),
         updatedAt: nextjsLatest.repository.latestRelease.updatedAt,
     };
-}, ['getNextjsLatestRelease'], { revalidate: HOURS_1 });
+}, ['getNextjsLatestRelease'], { revalidate: HOURS_6 });
 
 /**
  * Clean version from package.json dependency to extract just the semantic version
@@ -488,7 +488,7 @@ export const getFrameworkLatestRelease = unstable_cache(async (repoName, owner) 
         tagName: cleanVersionTag(latest.repository.latestRelease.tagName),
         updatedAt: latest.repository.latestRelease.updatedAt,
     };
-}, ['getFrameworkLatestRelease'], { revalidate: HOURS_1 });
+}, ['getFrameworkLatestRelease'], { revalidate: HOURS_6 });
 
 // Specific functions for each framework
 export const getAstroLatestRelease = () => getFrameworkLatestRelease('astro', 'withastro');
@@ -531,7 +531,7 @@ async function fetchRepositoryContentInfo(username, reponame) {
 const getRepositoryContentInfo = unstable_cache(
     fetchRepositoryContentInfo,
     ['getRepositoryContentInfo'],
-    { revalidate: HOURS_1 },
+    { revalidate: HOURS_24 },
 );
 
 function parseRepositoryPackageJson(repository, username, reponame) {
@@ -638,7 +638,7 @@ export const getTrafficPageViews = unstable_cache(async (username, reponame) => 
     const todayUniques = response.data.views?.find((day) => day.timestamp.startsWith(yesterday))?.uniques || 0;
 
     return { sumUniques, todayUniques };
-}, ['getTrafficPageViews'], { revalidate: HOURS_1 });
+}, ['getTrafficPageViews'], { revalidate: HOURS_6 });
 
 export const getDependabotAlerts = unstable_cache(async (username, reponame) => {
     const response = await fetchGitHubResponse(`${GITHUB_API_URL}/repos/${username}/${reponame}/dependabot/alerts`, {
@@ -674,139 +674,108 @@ export async function checkAppJsxExistence(repoOwner, repoName) {
     return getCachedRepositoryRouterInfo(repoOwner, repoName);
 }
 
-async function fetchCopilotPRCountChunk(repositories) {
-    const searchableRepositories = repositories.filter((project) => buildCopilotRepoSearchQuery(project.owner?.login, project.name));
+async function fetchAgentCountChunk(repositories) {
+    const searchableRepositories = repositories.filter((project) => {
+        const owner = project.owner?.login;
+        return buildCopilotRepoSearchQuery(owner, project.name)
+            && buildCodexLabeledPRRepoSearchQuery(owner, project.name)
+            && buildClaudeLabeledPRRepoSearchQuery(owner, project.name);
+    });
 
     if (!searchableRepositories.length) {
-        return {};
+        return { copilot: {}, codex: {}, claude: {} };
     }
 
-    const variableDefinitions = searchableRepositories.map((_, index) => `$q${index}: String!`).join(', ');
+    const variableDefinitions = searchableRepositories.flatMap((_, index) => [
+        `$copilot${index}: String!`,
+        `$codex${index}: String!`,
+        `$claude${index}: String!`,
+    ]).join(', ');
     const searches = searchableRepositories.map((_, index) => `
-        repo${index}: search(type: ISSUE, query: $q${index}, first: 1) {
+        copilot${index}: search(type: ISSUE, query: $copilot${index}, first: 1) {
+            issueCount
+        }
+        codex${index}: search(type: ISSUE, query: $codex${index}, first: 1) {
+            issueCount
+        }
+        claude${index}: search(type: ISSUE, query: $claude${index}, first: 1) {
             issueCount
         }
     `).join('\n');
-    const variables = Object.fromEntries(
-        searchableRepositories.map((project, index) => [
-            `q${index}`,
-            buildCopilotRepoSearchQuery(project.owner.login, project.name)
-        ])
-    );
+    const variables = {};
+
+    searchableRepositories.forEach((project, index) => {
+        const owner = project.owner.login;
+        variables[`copilot${index}`] = buildCopilotRepoSearchQuery(owner, project.name);
+        variables[`codex${index}`] = buildCodexLabeledPRRepoSearchQuery(owner, project.name);
+        variables[`claude${index}`] = buildClaudeLabeledPRRepoSearchQuery(owner, project.name);
+    });
 
     const response = await fetchGitHubGraphQL(`
-        query BatchCopilotPRCounts(${variableDefinitions}) {
+        query BatchProjectAgentCounts(${variableDefinitions}) {
             ${searches}
         }
     `, variables, {
-        context: `batched Copilot PR counts for ${searchableRepositories.length} repositories`,
+        context: `batched agent counts for ${searchableRepositories.length} repositories`,
         fallback: {},
         next: { revalidate: HOURS_12 },
     });
 
-    return searchableRepositories.reduce((acc, project, index) => {
-        acc[getRepositoryKey(project)] = response[`repo${index}`]?.issueCount ?? null;
-        return acc;
-    }, {});
+    return searchableRepositories.reduce((counts, project, index) => {
+        const key = getRepositoryKey(project);
+        counts.copilot[key] = response[`copilot${index}`]?.issueCount ?? null;
+        counts.codex[key] = response[`codex${index}`]?.issueCount ?? null;
+        counts.claude[key] = response[`claude${index}`]?.issueCount ?? null;
+        return counts;
+    }, { copilot: {}, codex: {}, claude: {} });
 }
 
-async function getCopilotPRCounts(repositories) {
-    const counts = await Promise.all(chunkItems(repositories, COPILOT_GRAPHQL_BATCH_SIZE).map((chunk, index) =>
-        getOptionalValue(() => fetchCopilotPRCountChunk(chunk), {}, `Copilot count batch ${index + 1}`)
-    ));
-    return counts.reduce((acc, chunkResult) => Object.assign(acc, chunkResult), {});
-}
-
-async function fetchCodexCountChunk(repositories) {
-    const searchableRepositories = repositories.filter((project) =>
-        buildCodexLabeledPRRepoSearchQuery(project.owner?.login, project.name)
+async function getAgentCounts(repositories) {
+    const chunks = await Promise.all(
+        chunkItems(repositories, AGENT_GRAPHQL_BATCH_SIZE).map((chunk, index) =>
+            getOptionalValue(
+                () => fetchAgentCountChunk(chunk),
+                { copilot: {}, codex: {}, claude: {} },
+                `agent count batch ${index + 1}`,
+            )
+        )
     );
 
-    if (!searchableRepositories.length) {
-        return {};
+    return chunks.reduce((counts, chunkResult) => {
+        Object.assign(counts.copilot, chunkResult.copilot);
+        Object.assign(counts.codex, chunkResult.codex);
+        Object.assign(counts.claude, chunkResult.claude);
+        return counts;
+    }, { copilot: {}, codex: {}, claude: {} });
+}
+
+function getPackageDependencyVersion(packageJson, dependency) {
+    const version = packageJson?.dependencies?.[dependency]
+        ?? packageJson?.devDependencies?.[dependency];
+    return cleanDependencyVersion(version);
+}
+
+function getRouterMode({ isRouterPages, isRouterApp }) {
+    if (isRouterPages && isRouterApp) return 'hybrid';
+    if (isRouterApp) return 'app';
+    if (isRouterPages) return 'pages';
+    return 'none';
+}
+
+function getRepositoryUiLibraries(packageJson) {
+    const libraries = [];
+
+    if (packageJson?.devDependencies?.tailwindcss || packageJson?.dependencies?.tailwindcss) {
+        libraries.push('tailwindcss');
+    }
+    if (packageJson?.dependencies?.['react-bootstrap']) {
+        libraries.push('react-bootstrap');
+    }
+    if (packageJson?.dependencies?.['@primer/react']) {
+        libraries.push('primer');
     }
 
-    // Note: GitHub's GraphQL SearchType enum only supports ISSUE, REPOSITORY, USER, and DISCUSSION.
-    // Commit search (type: COMMIT) is not available via GraphQL and must use the REST API instead.
-    // Here we only count labeled PRs; commit-based counting is handled separately via REST if needed.
-    const variableDefinitions = searchableRepositories.map((_, index) => `$pr${index}: String!`).join(', ');
-    const searches = searchableRepositories.map((_, index) => `
-        pr${index}: search(type: ISSUE, query: $pr${index}, first: 1) {
-            issueCount
-        }
-    `).join('\n');
-    const variables = Object.fromEntries(
-        searchableRepositories.map((project, index) => [
-            `pr${index}`, buildCodexLabeledPRRepoSearchQuery(project.owner.login, project.name),
-        ])
-    );
-
-    const response = await fetchGitHubGraphQL(`
-        query BatchCodexCounts(${variableDefinitions}) {
-            ${searches}
-        }
-    `, variables, {
-        context: `batched Codex counts for ${searchableRepositories.length} repositories`,
-        fallback: {},
-        next: { revalidate: HOURS_12 },
-    });
-
-    return searchableRepositories.reduce((acc, project, index) => {
-        acc[getRepositoryKey(project)] = response[`pr${index}`]?.issueCount ?? 0;
-        return acc;
-    }, {});
-}
-
-async function getCodexCounts(repositories) {
-    const counts = await Promise.all(chunkItems(repositories, CODEX_GRAPHQL_BATCH_SIZE).map((chunk, index) =>
-        getOptionalValue(() => fetchCodexCountChunk(chunk), {}, `Codex count batch ${index + 1}`)
-    ));
-    return counts.reduce((acc, chunkResult) => Object.assign(acc, chunkResult), {});
-}
-
-async function fetchClaudeCountChunk(repositories) {
-    const searchableRepositories = repositories.filter((project) =>
-        buildClaudeLabeledPRRepoSearchQuery(project.owner?.login, project.name)
-    );
-
-    if (!searchableRepositories.length) {
-        return {};
-    }
-
-    // GitHub GraphQL cannot search commits, so repository card counts are based on labeled PRs.
-    const variableDefinitions = searchableRepositories.map((_, index) => `$pr${index}: String!`).join(', ');
-    const searches = searchableRepositories.map((_, index) => `
-        pr${index}: search(type: ISSUE, query: $pr${index}, first: 1) {
-            issueCount
-        }
-    `).join('\n');
-    const variables = Object.fromEntries(
-        searchableRepositories.map((project, index) => [
-            `pr${index}`, buildClaudeLabeledPRRepoSearchQuery(project.owner.login, project.name),
-        ])
-    );
-
-    const response = await fetchGitHubGraphQL(`
-        query BatchClaudeCounts(${variableDefinitions}) {
-            ${searches}
-        }
-    `, variables, {
-        context: `batched Claude counts for ${searchableRepositories.length} repositories`,
-        fallback: {},
-        next: { revalidate: HOURS_12 },
-    });
-
-    return searchableRepositories.reduce((acc, project, index) => {
-        acc[getRepositoryKey(project)] = response[`pr${index}`]?.issueCount ?? 0;
-        return acc;
-    }, {});
-}
-
-async function getClaudeCounts(repositories) {
-    const counts = await Promise.all(chunkItems(repositories, CLAUDE_GRAPHQL_BATCH_SIZE).map((chunk, index) =>
-        getOptionalValue(() => fetchClaudeCountChunk(chunk), {}, `Claude count batch ${index + 1}`)
-    ));
-    return counts.reduce((acc, chunkResult) => Object.assign(acc, chunkResult), {});
+    return libraries;
 }
 
 async function getRepositoryVercelDetails(username, reponame, nextjsLatestRelease) {
@@ -815,13 +784,28 @@ async function getRepositoryVercelDetails(username, reponame, nextjsLatestReleas
         const packageJson = parseRepositoryPackageJson(repository, username, reponame);
         const routerInfo = getRouterInfoFromRepository(repository);
         const repositoryFrameworks = await getFrameworkDetails(packageJson);
+        const nextjsVersion = getPackageDependencyVersion(packageJson, 'next');
+        const astroVersion = getPackageDependencyVersion(packageJson, 'astro');
+        const isNext16 = nextjsVersion && compareVersions(nextjsVersion, '16.0.0') >= 0;
 
         return {
-            nextjsLatestRelease,
-            packageJson,
-            isRouterPages: routerInfo.isRouterPages,
-            isRouterApp: routerInfo.isRouterApp,
-            repositoryFrameworks,
+            nextjsVersion,
+            astroVersion,
+            nextjsLatestVersion: nextjsLatestRelease.tagName || '',
+            routerMode: getRouterMode(routerInfo),
+            repositoryFrameworks: repositoryFrameworks.map((framework) => ({
+                name: framework.name,
+                type: framework.type,
+                version: framework.version,
+                latestVersion: framework.latestVersion,
+                hasUpgrade: framework.hasUpgrade,
+            })),
+            isUsingTurbopack: Boolean(
+                isNext16
+                || packageJson?.scripts?.dev?.includes('--turbo')
+                || packageJson?.scripts?.dev?.includes('--turbopack')
+            ),
+            uiLibraries: getRepositoryUiLibraries(packageJson),
         };
     } catch (error) {
         console.error(`Failed to enrich Vercel data for ${username}/${reponame}:`, error);
@@ -832,10 +816,12 @@ async function getRepositoryVercelDetails(username, reponame, nextjsLatestReleas
 async function enrichProjectsForCards(projects) {
     const ownerProjects = projects.filter((project) => isOwnedRepository(project, PORTFOLIO_OWNER_USERNAME));
     const hasVercelProjects = projects.some((project) => project.vercel);
-    const [copilotPRCounts, codexCounts, claudeCounts, nextjsLatestRelease] = await Promise.all([
-        getOptionalValue(() => getCopilotPRCounts(ownerProjects), {}, 'project Copilot counts'),
-        getOptionalValue(() => getCodexCounts(ownerProjects), {}, 'project Codex counts'),
-        getOptionalValue(() => getClaudeCounts(ownerProjects), {}, 'project Claude counts'),
+    const [agentCounts, nextjsLatestRelease] = await Promise.all([
+        getOptionalValue(
+            () => getAgentCounts(ownerProjects),
+            { copilot: {}, codex: {}, claude: {} },
+            'project agent counts',
+        ),
         hasVercelProjects
             ? getOptionalValue(() => getNextjsLatestRelease(), {}, 'latest Next.js release')
             : Promise.resolve({}),
@@ -866,9 +852,9 @@ async function enrichProjectsForCards(projects) {
                 isOwnerRepo,
                 views,
                 openAlertsBySeverity,
-                copilotPRCount: isOwnerRepo ? (copilotPRCounts[getRepositoryKey(project)] ?? null) : null,
-                codexCount: isOwnerRepo ? (codexCounts[getRepositoryKey(project)] ?? null) : null,
-                claudeCount: isOwnerRepo ? (claudeCounts[getRepositoryKey(project)] ?? null) : null,
+                copilotPRCount: isOwnerRepo ? (agentCounts.copilot[getRepositoryKey(project)] ?? null) : null,
+                codexCount: isOwnerRepo ? (agentCounts.codex[getRepositoryKey(project)] ?? null) : null,
+                claudeCount: isOwnerRepo ? (agentCounts.claude[getRepositoryKey(project)] ?? null) : null,
             },
             vercel: project.vercel ? {
                 ...project.vercel,
@@ -878,68 +864,113 @@ async function enrichProjectsForCards(projects) {
     });
 }
 
-export async function getProjectsPageData(username, { limit } = {}) {
-    const isPortfolioOwner = typeof username === 'string'
+export function isPortfolioOwnerUsername(username) {
+    return typeof username === 'string'
         && username.toLowerCase() === PORTFOLIO_OWNER_USERNAME.toLowerCase();
-    const [
-        repositories,
-        pinnedNames,
-        vercelProjects
-    ] = await Promise.all([
-        getOptionalValue(() => getRepos(username), [], `repositories for ${username}`),
-        getOptionalValue(() => getPinnedRepos(username), [], `pinned repositories for ${username}`),
-        isPortfolioOwner
-            ? getOptionalValue(() => getVercelProjects(), { projects: [] }, 'Vercel projects')
-            : Promise.resolve({ projects: [] }),
-    ]);
+}
 
-    const vercelProjectsByName = new Map(
-        vercelProjects.projects
-            .filter((project) => repositories.some((repo) => repo.name === project.name))
-            .map((project) => [project.name, {
-                framework: project.framework,
-                name: project.name,
-                nodeVersion: project.nodeVersion,
-                link: project.link,
-                description: project.description,
-            }])
-    );
-
-    const repositoriesWithVercel = repositories.map((repo) => ({
-        ...repo,
-        vercel: vercelProjectsByName.get(repo.name),
-    }));
-
-    const heroes = repositoriesWithVercel
+function selectVisibleProjects(repositories, pinnedNames) {
+    const heroes = repositories
         .filter((project) => pinnedNames.includes(project.name))
         .sort((a, b) => b.stargazers_count - a.stargazers_count);
-    const sorted = repositoriesWithVercel
-        .filter((p) => !p.private)
-        .filter((p) => !p.fork)
-        .filter((p) => !p.archived)
-        .filter((p) => !pinnedNames.includes(p.name))
-        .filter((p) => !data.projects.blacklist.includes(p.name))
+    const sorted = repositories
+        .filter((project) => !project.private)
+        .filter((project) => !project.fork)
+        .filter((project) => !project.archived)
+        .filter((project) => !pinnedNames.includes(project.name))
+        .filter((project) => !data.projects.blacklist.includes(project.name))
         .sort(
             (a, b) =>
                 new Date(b.updated_at ?? Number.POSITIVE_INFINITY).getTime() -
                 new Date(a.updated_at ?? Number.POSITIVE_INFINITY).getTime(),
         );
 
-    const totalProjects = heroes.length + sorted.length;
-    const normalizedLimit = Number.isInteger(limit) && limit > 0 ? limit : null;
-    const visibleHeroes = normalizedLimit ? heroes.slice(0, normalizedLimit) : heroes;
-    const remainingSlots = normalizedLimit
-        ? Math.max(0, normalizedLimit - visibleHeroes.length)
-        : sorted.length;
-    const visibleSorted = normalizedLimit ? sorted.slice(0, remainingSlots) : sorted;
-    const enrichedProjects = await enrichProjectsForCards([...visibleHeroes, ...visibleSorted]);
-    const enrichedProjectsByKey = new Map(enrichedProjects.map((project) => [getRepositoryKey(project), project]));
+    return { heroes, sorted };
+}
+
+function toProjectCardData(project) {
+    const owner = project.owner?.login || '';
 
     return {
-        heroes: visibleHeroes.map((project) => enrichedProjectsByKey.get(getRepositoryKey(project)) ?? project),
-        sorted: visibleSorted.map((project) => enrichedProjectsByKey.get(getRepositoryKey(project)) ?? project),
-        totalProjects,
+        full_name: project.full_name || `${owner}/${project.name}`,
+        owner: { login: owner },
+        name: project.name,
+        homepage: project.homepage || '',
+        html_url: project.html_url,
+        created_at: project.created_at,
+        stargazers_count: project.stargazers_count || 0,
+        description: project.description || '',
     };
+}
+
+function getLinkedGitHubRepositoryKey(vercelProject) {
+    const link = vercelProject?.link;
+
+    if (!link || (link.type && link.type !== 'github')) {
+        return null;
+    }
+
+    const owner = link.org || link.owner || link.repoOwner;
+    const repository = link.repo;
+
+    if (typeof owner !== 'string' || typeof repository !== 'string') {
+        return null;
+    }
+
+    return `${owner}/${repository}`.toLowerCase();
+}
+
+export async function getProjectsPageData(username) {
+    const [repositories, pinnedNames] = await Promise.all([
+        getOptionalValue(() => getRepos(username), [], `repositories for ${username}`),
+        getOptionalValue(() => getPinnedRepos(username), [], `pinned repositories for ${username}`),
+    ]);
+    const { heroes, sorted } = selectVisibleProjects(repositories, pinnedNames);
+
+    return {
+        heroes: heroes.map(toProjectCardData),
+        sorted: sorted.map(toProjectCardData),
+        isPortfolioOwner: isPortfolioOwnerUsername(username),
+    };
+}
+
+export async function getOwnerProjectSecondaryData() {
+    const [{ heroes, sorted }, vercelProjects] = await Promise.all([
+        getProjectsPageData(PORTFOLIO_OWNER_USERNAME),
+        getOptionalValue(() => getVercelProjects(), { projects: [] }, 'Vercel projects'),
+    ]);
+    const projects = [...heroes, ...sorted].filter((project) =>
+        isOwnedRepository(project, PORTFOLIO_OWNER_USERNAME)
+    );
+    const projectKeys = new Set(projects.map((project) => getRepositoryKey(project).toLowerCase()));
+    const vercelProjectsByRepository = new Map(
+        vercelProjects.projects
+            .map((project) => [getLinkedGitHubRepositoryKey(project), project])
+            .filter(([key]) => key && projectKeys.has(key))
+            .map(([key, project]) => [key, {
+                framework: project.framework || null,
+                nodeVersion: project.nodeVersion || null,
+            }])
+    );
+    const projectsWithVercel = projects.map((project) => ({
+        ...project,
+        vercel: vercelProjectsByRepository.get(getRepositoryKey(project).toLowerCase()),
+    }));
+    const enrichedProjects = await enrichProjectsForCards(projectsWithVercel);
+
+    return Object.fromEntries(enrichedProjects.map((project) => [
+        getRepositoryKey(project),
+        {
+            ownerMetrics: {
+                views: project.ownerMetrics.views,
+                openAlertsBySeverity: project.ownerMetrics.openAlertsBySeverity,
+                copilotPRCount: project.ownerMetrics.copilotPRCount,
+                codexCount: project.ownerMetrics.codexCount,
+                claudeCount: project.ownerMetrics.claudeCount,
+            },
+            vercel: project.vercel || null,
+        },
+    ]));
 }
 
 /**
@@ -1265,7 +1296,7 @@ async function getFrameworkDetails(packageJson) {
 
 /**
  * Get framework information with version comparison for a repository.
- * Repository content and framework release requests retain their one-hour caches.
+ * Repository content is cached for 24 hours and framework releases for 6 hours.
  * @param {string} username - GitHub username
  * @param {string} reponame - Repository name
  * @returns {Array} Array of framework info with upgrade status

@@ -26,13 +26,6 @@
   }
 }
 
-@layer utilities {
-  .deferred-card {
-    content-visibility: auto;
-    contain-intrinsic-block-size: auto 22rem;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-in,
   .animate-fade-left,

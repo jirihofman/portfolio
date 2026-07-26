@@ -1,9 +1,7 @@
-import Link from "next/link";
 import { Card } from "../components/card";
 import { getProjectsPageData } from "../data";
 import { Article } from "./article";
-
-const DEFAULT_PROJECT_LIMIT = 6;
+import { SecondaryDataProvider } from "./secondary-data-provider";
 
 function chunkItems(items, size) {
 	return Array.from(
@@ -12,124 +10,76 @@ function chunkItems(items, size) {
 	);
 }
 
-function ProjectCard({ project, deferRender = false }) {
+function ProjectCard({ project, loadSecondaryData }) {
 	return (
-		<Card deferRender={deferRender}>
-			<Article project={project} />
+		<Card>
+			<Article
+				project={project}
+				loadSecondaryData={loadSecondaryData}
+			/>
 		</Card>
 	);
 }
 
-export default async function ProjectsComponent({
-	username,
-	showAll = false,
-	projectsPath = "/projects",
-}) {
+export default async function ProjectsComponent({ username }) {
 	const {
 		heroes,
 		sorted,
-		totalProjects,
-	} = await getProjectsPageData(username, {
-		limit: showAll ? undefined : DEFAULT_PROJECT_LIMIT,
-	});
-	const visibleHeroes = showAll
-		? heroes
-		: heroes.slice(0, DEFAULT_PROJECT_LIMIT);
-	const remainingSlots = Math.max(
-		0,
-		DEFAULT_PROJECT_LIMIT - visibleHeroes.length,
-	);
-	const visibleSorted = showAll
-		? sorted
-		: sorted.slice(0, remainingSlots);
-	const heroColumnSize = Math.max(
-		1,
-		Math.ceil(visibleHeroes.length / 2),
-	);
-	const sortedColumnSize = Math.max(
-		1,
-		Math.ceil(visibleSorted.length / 3),
-	);
-	const heroColumns = chunkItems(visibleHeroes, heroColumnSize);
-	const sortedColumns = chunkItems(visibleSorted, sortedColumnSize);
-	const isTruncated =
-		visibleHeroes.length + visibleSorted.length < totalProjects;
-
-	return (
+		isPortfolioOwner,
+	} = await getProjectsPageData(username);
+	const heroColumnSize = Math.max(1, Math.ceil(heroes.length / 2));
+	const sortedColumnSize = Math.max(1, Math.ceil(sorted.length / 3));
+	const heroColumns = chunkItems(heroes, heroColumnSize);
+	const sortedColumns = chunkItems(sorted, sortedColumnSize);
+	const projectGrid = (
 		<>
-			{visibleHeroes.length > 0 ? (
+			{heroes.length > 0 ? (
 				<>
-					<div className="w-full h-px bg-zinc-800" />
-					<div className="grid grid-cols-1 gap-8 mx-auto lg:grid-cols-2">
+					<div className="h-px w-full bg-zinc-800" />
+					<div className="mx-auto grid grid-cols-1 gap-8 lg:grid-cols-2">
 						{heroColumns.map((column, columnIndex) => (
 							<div
 								key={`hero-column-${columnIndex}`}
 								className="grid grid-cols-1 gap-4"
 							>
-								{column.map((project, projectIndex) => (
+								{column.map((project) => (
 									<ProjectCard
-										key={project.full_name || project.name}
+										key={project.full_name}
 										project={project}
-										deferRender={
-											showAll &&
-											columnIndex * heroColumnSize +
-												projectIndex >=
-												DEFAULT_PROJECT_LIMIT
-										}
+										loadSecondaryData={isPortfolioOwner}
 									/>
 								))}
 							</div>
 						))}
 					</div>
-					<div className="hidden w-full h-px md:block bg-zinc-800" />
+					<div className="hidden h-px w-full bg-zinc-800 md:block" />
 				</>
 			) : null}
 
-			{visibleSorted.length > 0 ? (
-				<div className="grid grid-cols-1 gap-4 mx-auto lg:mx-0 md:grid-cols-3">
+			{sorted.length > 0 ? (
+				<div className="mx-auto grid grid-cols-1 gap-4 md:grid-cols-3 lg:mx-0">
 					{sortedColumns.map((column, columnIndex) => (
 						<div
 							key={`project-column-${columnIndex}`}
 							className="grid grid-cols-1 gap-4"
 						>
-							{column.map((project, projectIndex) => (
+							{column.map((project) => (
 								<ProjectCard
-									key={project.full_name || project.name}
+									key={project.full_name}
 									project={project}
-									deferRender={
-										showAll &&
-										visibleHeroes.length +
-											columnIndex * sortedColumnSize +
-											projectIndex >=
-											DEFAULT_PROJECT_LIMIT
-									}
+									loadSecondaryData={isPortfolioOwner}
 								/>
 							))}
 						</div>
 					))}
 				</div>
 			) : null}
-
-			{isTruncated ? (
-				<div className="flex justify-center">
-					<Link
-						href={`${projectsPath}/all`}
-						prefetch={false}
-						className="text-lg duration-500 text-zinc-400 hover:text-zinc-100 border border-zinc-600 hover:border-zinc-400 rounded-lg px-5 py-3"
-					>
-						View all {totalProjects} projects
-					</Link>
-				</div>
-			) : showAll && totalProjects > DEFAULT_PROJECT_LIMIT ? (
-				<div className="flex justify-center">
-					<Link
-						href={projectsPath}
-						className="text-lg duration-500 text-zinc-400 hover:text-zinc-100"
-					>
-						Show fewer projects
-					</Link>
-				</div>
-			) : null}
 		</>
+	);
+
+	return isPortfolioOwner ? (
+		<SecondaryDataProvider>{projectGrid}</SecondaryDataProvider>
+	) : (
+		projectGrid
 	);
 }
