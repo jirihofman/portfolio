@@ -24,5 +24,22 @@
   .text-edge-outline {
     -webkit-text-stroke: 1px rgba(255,255,255,0.3);
   }
-} 
+}
 
+@layer utilities {
+  .deferred-card {
+    content-visibility: auto;
+    contain-intrinsic-block-size: auto 22rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-fade-left,
+  .animate-fade-right,
+  .animate-title {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

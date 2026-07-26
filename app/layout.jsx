@@ -28,13 +28,14 @@ export const metadata = {
 			url: "/favicon.ico",
 			rel: "icon",
 			sizes: "any",
-			type: "image/svg+xml",
+			type: "image/x-icon",
 		},
 	]
 };
 const calSans = LocalFont({
-	src: "../public/fonts/CalSans-SemiBold.ttf",
+	src: "../public/fonts/CalSans-SemiBold-latin.woff2",
 	variable: "--font-calsans",
+	display: "swap",
 });
 
 export default function RootLayout({
