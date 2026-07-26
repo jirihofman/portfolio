@@ -12,7 +12,7 @@ import { getUser } from "../../data";
 import { createUserPath } from "../_lib/username";
 
 const navigation = [
-	{ name: "Projects", suffix: "/projects", prefetch: false },
+	{ name: "Projects", suffix: "/projects" },
 	{ name: "Contact", suffix: "/contact" },
 ];
 
@@ -75,7 +75,6 @@ export function LandingPage({ username, isCustomUser = false, user }) {
 									? `${userPath}${item.suffix}`
 									: item.suffix
 							}
-							prefetch={item.prefetch}
 							className="text-lg duration-500 text-zinc-500 hover:text-zinc-300"
 						>
 							<span className="inline-flex items-center">
