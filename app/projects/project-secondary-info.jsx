@@ -42,7 +42,11 @@ function MetricsSkeleton() {
 }
 
 export function ProjectTechnology({ repositoryKey }) {
-	const { status, repository } = useProjectSecondaryData(repositoryKey);
+	const {
+		status,
+		repository,
+		showLoader,
+	} = useProjectSecondaryData(repositoryKey);
 	const isLoading = status === "loading";
 
 	return (
@@ -50,7 +54,7 @@ export function ProjectTechnology({ repositoryKey }) {
 			aria-busy={isLoading}
 			className="flex h-7 w-40 max-w-[52vw] shrink-0 items-center justify-end"
 		>
-			{isLoading ? <TechnologySkeleton /> : null}
+			{isLoading && showLoader ? <TechnologySkeleton /> : null}
 			{status === "ready" && repository?.vercel ? (
 				<VercelInfo info={repository.vercel} />
 			) : null}
@@ -103,8 +107,13 @@ function getAlertPresentation(alerts) {
 }
 
 export function ProjectMetrics({ repositoryKey }) {
-	const { status, repository } = useProjectSecondaryData(repositoryKey);
+	const {
+		status,
+		repository,
+		showLoader,
+	} = useProjectSecondaryData(repositoryKey);
 	const isLoading = status === "loading";
+	const isPending = isLoading || status === "restoring";
 	const metrics = repository?.ownerMetrics || {};
 	const views = metrics.views;
 	const alerts = getAlertPresentation(metrics.openAlertsBySeverity);
@@ -114,8 +123,8 @@ export function ProjectMetrics({ repositoryKey }) {
 			aria-busy={isLoading}
 			className="inline-flex h-7 w-48 max-w-[58vw] shrink-0 items-center gap-2 text-xs text-zinc-500"
 		>
-			{isLoading ? (
-				<MetricsSkeleton />
+			{isPending ? (
+				isLoading && showLoader ? <MetricsSkeleton /> : null
 			) : (
 				<>
 					<span
