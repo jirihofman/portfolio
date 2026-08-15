@@ -15,7 +15,7 @@ export function Article({ project, loadSecondaryData = false }) {
 	const createdAt = new Date(project.created_at).toISOString();
 
 	return (
-		<article className="p-4 md:p-6">
+		<article className="p-4">
 			<div className="flex items-center justify-between gap-2">
 				<time
 					dateTime={createdAt}
