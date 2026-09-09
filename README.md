@@ -119,3 +119,21 @@ The AI agent will:
 **Manual Removal:**
 
 If you prefer to remove template functionality manually, follow the detailed instructions in `.github/prompts/remove-template.md`.
+
+## AI usage (optional)
+
+Set `OPENROUTER_MANAGEMENT_KEY` in `.env.local` and restart the dev server to enable `/ai-usage` and its navigation links on the main portfolio. Without a key, the page returns 404 and the links are hidden. Other GitHub profiles never display the owner's AI usage links.
+
+Use an OpenRouter **management key**, not a standard inference key. The [activity API](https://openrouter.ai/docs/api/api-reference/analytics/get-user-activity) requires it and returns the last 30 completed UTC days. The key is used server-side for the activity endpoint and an aggregate analytics query for cached input tokens. Never use a `NEXT_PUBLIC_` variable or commit a key.
+
+The public page shows model names, daily request counts, input/output/reasoning token counts, model shares, and active days. It excludes prompts, conversations, account/member details, endpoint and key identifiers, and all spending data. Reasoning tokens are already part of output tokens. Cached input tokens are shown when the analytics API provides a complete result; unavailable cache data is omitted, not reported as zero. Cached tokens are already included in input tokens. Only allowlisted aggregates are cached for six hours, with revalidation on a subsequent request; an already open page does not poll. The timestamp shows when the displayed data was fetched, without a cache-duration label. Activity API failures show a neutral unavailable state; analytics failures omit the cached-token row while keeping the rest of the page available. No additional key or browser setup is needed.
+
+### Vercel configuration
+
+Add `OPENROUTER_MANAGEMENT_KEY` in the portfolio project's **Settings → Environment Variables** before deploying this feature. Use a Sensitive variable for Production and Preview. Preview scope enables live statistics in PR deployments; omit that scope if previews should not access the account. Keep the value server-only and use the same management key as local development. Development can continue using the ignored `.env.local` file.
+
+Environment changes apply to new deployments. Redeploy the relevant environment after adding, replacing, or removing the key so navigation and the page use the new configuration. Removing the variable disables the feature; it does not revoke the key at OpenRouter.
+
+### Verification
+
+Run `node --test lib/ai-usage.test.mjs` for date boundaries, aggregation, privacy filtering, and cached-token parsing (including zero, missing, invalid, and partial results). Run `npm run build-only` to validate the Next.js production build without running the template setup script. With the dev server running, open `/ai-usage` and check the daily totals and token breakdown; without a key, expect a 404.
