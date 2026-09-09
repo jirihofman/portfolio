@@ -55,7 +55,19 @@ const nextConfig = {
             value: "public, max-age=86400, stale-while-revalidate=604800",
         };
 
+        const securityHeaders = [
+            { key: "X-Frame-Options", value: "DENY" },
+            { key: "X-Content-Type-Options", value: "nosniff" },
+            { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+            { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+            { key: "Content-Security-Policy", value: "default-src 'self'; img-src 'self' https: data:; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'" },
+        ];
+
         return [
+            {
+                source: "/:path*",
+                headers: securityHeaders,
+            },
             {
                 source: "/favicon.ico",
                 headers: [publicAssetCache],
