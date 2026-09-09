@@ -1,3 +1,4 @@
+import { ModelPreference } from "../../components/model-preference";
 import { isAiUsageEnabled } from "../../ai-usage/data";
 import Image from "next/image";
 import Link from "next/link";
@@ -115,6 +116,11 @@ export function LandingPage({ username, isCustomUser = false, user }) {
 					<Suspense fallback={null}>
 						<CopilotActivity username={username} />
 					</Suspense>
+					{!isCustomUser && isAiUsageEnabled() && (
+						<Suspense fallback={null}>
+							<ModelPreference />
+						</Suspense>
+					)}
 				</div>
 			</div>
 		</div>
