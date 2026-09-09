@@ -137,3 +137,11 @@ Environment changes apply to new deployments. Redeploy the relevant environment 
 ### Verification
 
 Run `node --test lib/ai-usage.test.mjs` for date boundaries, aggregation, privacy filtering, and cached-token parsing (including zero, missing, invalid, and partial results). Run `npm run build-only` to validate the Next.js production build without running the template setup script. With the dev server running, open `/ai-usage` and check the daily totals and token breakdown; without a key, expect a 404.
+
+### Homepage model preference
+
+When the OpenRouter key is configured, the main profile can show a short sentence directly below the Copilot/Codex/Claude contribution summary, linking to AI usage. It uses the same six-hour cached aggregates for the last 30 completed UTC days, without another API request or any prompt data. Custom GitHub profiles never show this sentence.
+
+The sentence requires at least 10 total requests, a leading model with at least 60% of requests, and a lead over the runner-up of at least 20 percentage points. These are conservative display heuristics, not a statistical confidence claim. With fewer than 100 requests to the leading model it says “I dabble with [model] on OpenRouter lately.” At 100 or more it says “I use [model] a lot on OpenRouter lately.” Missing, inconsistent, tied, or inconclusive data produces no sentence. Model versions are retained; unfamiliar model IDs are displayed as supplied rather than guessed.
+
+Run `node --test lib/model-preference.test.mjs` to check these thresholds and naming behavior.
