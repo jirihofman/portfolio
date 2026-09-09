@@ -1,3 +1,4 @@
+import { isAiUsageEnabled } from "../../ai-usage/data";
 import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -66,15 +67,16 @@ export function LandingPage({ username, isCustomUser = false, user }) {
 	return (
 		<div className="flex flex-col items-center justify-center w-screen min-h-screen overflow-y-auto bg-linear-to-tl from-black via-zinc-600/20 to-black">
 			<nav className="my-16 animate-fade-in">
-				<ul className="flex items-center justify-center gap-4">
-					{navigation.map((item) => (
+				<ul className="flex flex-wrap items-center justify-center gap-4 px-4">
+					{[
+						...navigation,
+						...(!isCustomUser && isAiUsageEnabled()
+							? [{ name: "AI usage", suffix: "/ai-usage" }]
+							: []),
+					].map((item) => (
 						<Link
 							key={item.suffix}
-							href={
-								userPath
-									? `${userPath}${item.suffix}`
-									: item.suffix
-							}
+							href={userPath ? `${userPath}${item.suffix}` : item.suffix}
 							className="text-lg duration-500 text-zinc-500 hover:text-zinc-300"
 						>
 							<span className="inline-flex items-center">
@@ -82,10 +84,7 @@ export function LandingPage({ username, isCustomUser = false, user }) {
 							</span>
 						</Link>
 					))}
-					<ProfileSwitcher
-						username={username}
-						isCustomUser={isCustomUser}
-					/>
+					<ProfileSwitcher username={username} isCustomUser={isCustomUser} />
 				</ul>
 			</nav>
 			<div className="hidden w-screen h-px animate-glow md:block animate-fade-left bg-linear-to-r from-zinc-300/0 via-zinc-300/50 to-zinc-300/0" />
@@ -105,10 +104,7 @@ export function LandingPage({ username, isCustomUser = false, user }) {
 			<div className="my-16 text-center animate-fade-in text-lg text-zinc-500">
 				<div className="w-full min-h-28">
 					<Suspense fallback={<p>Loading profile...</p>}>
-						<UserText
-							promise={userPromise}
-							fallbackName={fallbackName}
-						/>
+						<UserText promise={userPromise} fallbackName={fallbackName} />
 					</Suspense>
 					<Suspense fallback={null}>
 						<ProfileOrganizations username={username} />

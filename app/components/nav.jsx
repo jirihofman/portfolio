@@ -1,3 +1,4 @@
+import { isAiUsageEnabled } from "../ai-usage/data";
 import { GoArrowLeft } from "react-icons/go";
 import Link from "next/link";
 import LoadingIndicator from "./loading-indicator";
@@ -13,7 +14,7 @@ export const Navigation = ({ username }) => {
 		<header>
 			<div className="fixed inset-x-0 top-0 z-50 backdrop-blur duration-200 border-b bg-zinc-900/80 border-zinc-800/60">
 				<div className="container flex flex-row-reverse items-center justify-between p-6 mx-auto">
-					<div className="flex justify-between gap-8 text-base">
+					<div className="flex justify-between gap-4 sm:gap-8 text-base">
 						<Link
 							href={projectsHref}
 							prefetch={false}
@@ -23,6 +24,17 @@ export const Navigation = ({ username }) => {
 								Projects <LoadingIndicator />
 							</span>
 						</Link>
+						{!username && isAiUsageEnabled() && (
+							<Link
+								href="/ai-usage"
+								prefetch={false}
+								className="duration-200 text-zinc-400 hover:text-zinc-100 relative block"
+							>
+								<span className="inline-flex items-center">
+									AI usage <LoadingIndicator />
+								</span>
+							</Link>
+						)}
 						<Link
 							href={contactHref}
 							className="duration-200 text-zinc-400 hover:text-zinc-100 relative block"
@@ -36,7 +48,9 @@ export const Navigation = ({ username }) => {
 					<Link
 						href={homeHref}
 						className="duration-200 text-zinc-300 hover:text-zinc-100"
-						aria-label={username ? `Back to ${username}'s profile` : "Back to home"}
+						aria-label={
+							username ? `Back to ${username}'s profile` : "Back to home"
+						}
 					>
 						<GoArrowLeft className="w-6 h-6" />
 					</Link>
