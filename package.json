@@ -7,7 +7,8 @@
     "build": "npm run setup && next build",
     "build-only": "next build",
     "start": "next start",
-    "setup": "node ./lib/setup.mjs"
+    "setup": "node ./lib/setup.mjs",
+    "test": "node --experimental-vm-modules --test tests/*.test.mjs"
   },
   "engines": {
     "node": "24.x"

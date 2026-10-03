@@ -27,6 +27,10 @@ export default async function ProjectsComponent({ username }) {
 		sorted,
 		isPortfolioOwner,
 	} = await getProjectsPageData(username);
+	if (heroes.length === 0 && sorted.length === 0) {
+		return <p className="text-zinc-400">No public projects to display.</p>;
+	}
+
 	const heroColumnSize = Math.max(1, Math.ceil(heroes.length / 2));
 	const sortedColumnSize = Math.max(1, Math.ceil(sorted.length / 3));
 	const heroColumns = chunkItems(heroes, heroColumnSize);

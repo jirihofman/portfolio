@@ -46,7 +46,7 @@ async function parseJsonResponse(res, context, fallback) {
     }
 }
 
-async function fetchGitHubResponse(url, { context, fallback = null, method = 'GET', body, headers, next } = {}) {
+async function fetchGitHubResponse(url, { context, fallback = null, method = 'GET', body, headers, next, throwOnError = false } = {}) {
     try {
         const res = await fetch(url, {
             method,
@@ -59,12 +59,18 @@ async function fetchGitHubResponse(url, { context, fallback = null, method = 'GE
         let payload = cloneFallbackValue(fallback);
 
         if (contentType.includes('application/json')) {
-            payload = await parseJsonResponse(res, context, fallback);
+            payload = throwOnError ? await res.json() : await parseJsonResponse(res, context, fallback);
         } else if (res.ok) {
+            if (throwOnError) {
+                throw new Error(`GitHub API returned a non-JSON response for ${context}.`);
+            }
             console.error(`GitHub API returned a non-JSON response for ${context}.`);
         }
 
         if (!res.ok) {
+            if (throwOnError) {
+                throw new Error(`GitHub API returned ${res.status} for ${context}.`);
+            }
             console.error(`GitHub API returned an error for ${context}.`, res.status, res.statusText);
             return { ok: false, data: cloneFallbackValue(fallback), headers: res.headers };
         }
@@ -72,6 +78,9 @@ async function fetchGitHubResponse(url, { context, fallback = null, method = 'GE
         return { ok: true, data: payload, headers: res.headers };
     } catch (error) {
         console.error(`GitHub API request failed for ${context}:`, error);
+        if (throwOnError) {
+            throw error;
+        }
         return { ok: false, data: cloneFallbackValue(fallback), headers: new Headers() };
     }
 }
@@ -107,7 +116,7 @@ function hasNextPage(linkHeader) {
     return Boolean(linkHeader?.split(',').some((link) => link.includes('rel="next"')));
 }
 
-async function fetchPaginatedGitHubArray(initialUrl, { context, next } = {}) {
+async function fetchPaginatedGitHubArray(initialUrl, { context, next, throwOnError = false } = {}) {
     const items = [];
     let page = 1;
     let shouldContinue = true;
@@ -123,6 +132,7 @@ async function fetchPaginatedGitHubArray(initialUrl, { context, next } = {}) {
             context: `${context} (page ${page})`,
             fallback: [],
             next,
+            throwOnError,
         });
 
         if (!response.ok) {
@@ -130,6 +140,9 @@ async function fetchPaginatedGitHubArray(initialUrl, { context, next } = {}) {
         }
 
         if (!Array.isArray(response.data)) {
+            if (throwOnError) {
+                throw new Error(`GitHub API returned an unexpected payload for ${context} on page ${page}.`);
+            }
             console.error(`GitHub API returned an unexpected payload for ${context} on page ${page}.`, {
                 payloadType: typeof response.data,
             });
@@ -294,13 +307,16 @@ export const getUser = unstable_cache(async (username) => {
     return response;
 }, ['getUser'], { revalidate });
 
+// Use a new key to discard empty/partial lists cached by the old failure handling.
 export const getRepos = unstable_cache(async (username) => {
     console.log('Fetching repos for', username);
     const response = await fetchPaginatedGitHubArray(`${GITHUB_API_URL}/users/${username}/repos?per_page=100`, {
         context: `repositories for ${username}`,
+        // Reject incomplete fetches so revalidation preserves the last successful list.
+        throwOnError: true,
     });
     return response;
-}, ['getRepos'], { revalidate: HOURS_1 });
+}, ['getRepos-v2'], { revalidate: HOURS_1 });
 
 export const getSocialAccounts = unstable_cache(async (username) => {
     console.log('Fetching social accounts for', username);
@@ -922,7 +938,7 @@ function getLinkedGitHubRepositoryKey(vercelProject) {
 
 export async function getProjectsPageData(username) {
     const [repositories, pinnedNames] = await Promise.all([
-        getOptionalValue(() => getRepos(username), [], `repositories for ${username}`),
+        getRepos(username),
         getOptionalValue(() => getPinnedRepos(username), [], `pinned repositories for ${username}`),
     ]);
     const { heroes, sorted } = selectVisibleProjects(repositories, pinnedNames);
