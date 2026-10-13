@@ -22,7 +22,7 @@
     "react-icons": "^5.7.0"
   },
   "devDependencies": {
-    "postcss": "^8.5.28",
+    "postcss": "^8.5.29",
     "tailwindcss": "^4.3.3"
   }
 }
