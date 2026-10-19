@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.3.3",
-    "dotenv": "^18.0.5",
+    "dotenv": "^18.0.8",
     "next": "^16.4.2",
     "react": "19.3.0",
     "react-dom": "19.3.0",
