@@ -16,6 +16,7 @@ const HOURS_24 = 60 * 60 * 24;
 const GITHUB_API_URL = 'https://api.github.com';
 const GITHUB_GRAPHQL_URL = `${GITHUB_API_URL}/graphql`;
 const AGENT_GRAPHQL_BATCH_SIZE = 10;
+const AGENT_BATCH_CONCURRENCY = 2;
 const EXTERNAL_FETCH_TIMEOUT_MS = 10_000;
 const PROJECT_ENRICHMENT_CONCURRENCY = 5;
 const PORTFOLIO_OWNER_USERNAME = process.env.GITHUB_USERNAME || data.githubUsername;
@@ -633,7 +634,11 @@ export async function checkAppJsxExistence(repoOwner, repoName) {
     return getRouterInfoFromRepository(await getRepositoryContentInfo(repoOwner, repoName));
 }
 
-const fetchAgentCountChunk = cacheData(async (repositories) => {
+const fetchAgentCountChunk = cacheData(async (repositoryKeys) => {
+    const repositories = repositoryKeys.map((key) => {
+        const [owner, name] = key.split('/');
+        return { full_name: key, owner: { login: owner }, name };
+    });
     const searchableRepositories = repositories.filter((project) => {
         const owner = project.owner?.login;
         return buildCopilotRepoSearchQuery(owner, project.name)
@@ -678,6 +683,9 @@ const fetchAgentCountChunk = cacheData(async (repositories) => {
         context: `batched agent counts for ${searchableRepositories.length} repositories`,
     });
 
+    if (Object.keys(variables).some((alias) => typeof response[alias]?.issueCount !== 'number')) {
+        throw new GitHubRequestError('GitHub returned incomplete agent counts.');
+    }
     return searchableRepositories.reduce((counts, project, index) => {
         const key = getRepositoryKey(project);
         counts.copilot[key] = response[`copilot${index}`]?.issueCount ?? null;
@@ -688,14 +696,15 @@ const fetchAgentCountChunk = cacheData(async (repositories) => {
 }, ['agent-count-chunk-success-v1'], { revalidate: HOURS_12 });
 
 async function getAgentCounts(repositories) {
-    const chunks = await Promise.all(
-        chunkItems(repositories, AGENT_GRAPHQL_BATCH_SIZE).map((chunk, index) =>
-            getOptionalValue(
-                () => fetchAgentCountChunk(chunk),
-                { copilot: {}, codex: {}, claude: {} },
-                `agent count batch ${index + 1}`,
-            )
-        )
+    // Display order and changing repository metadata must not change query identity.
+    const keys = [...new Set(repositories.map((project) => getRepositoryKey(project).toLowerCase()))].sort();
+    const chunks = await mapWithConcurrency(
+        chunkItems(keys, AGENT_GRAPHQL_BATCH_SIZE), AGENT_BATCH_CONCURRENCY,
+        (chunk, index) => getOptionalValue(
+            () => fetchAgentCountChunk(chunk),
+            { copilot: {}, codex: {}, claude: {} },
+            `agent count batch ${index + 1}`,
+        ),
     );
 
     return chunks.reduce((counts, chunkResult) => {
@@ -735,9 +744,11 @@ function getRepositoryUiLibraries(packageJson) {
     return libraries;
 }
 
-async function getRepositoryVercelDetails(username, reponame, nextjsLatestRelease) {
+async function getRepositoryVercelDetails(username, reponame, nextjsReleasePromise) {
     try {
-        const repository = await getRepositoryContentInfo(username, reponame);
+        const [repository, nextjsLatestRelease] = await Promise.all([
+            getRepositoryContentInfo(username, reponame), nextjsReleasePromise,
+        ]);
         const packageJson = parseRepositoryPackageJson(repository, username, reponame);
         const routerInfo = getRouterInfoFromRepository(repository);
         const repositoryFrameworks = await getFrameworkDetails(packageJson);
@@ -766,25 +777,24 @@ async function getRepositoryVercelDetails(username, reponame, nextjsLatestReleas
         };
     } catch (error) {
         console.error(`Failed to enrich Vercel data for ${username}/${reponame}:`, error);
-        return createEmptyVercelDetails(nextjsLatestRelease);
+        return createEmptyVercelDetails();
     }
 }
 
 async function enrichProjectsForCards(projects) {
     const ownerProjects = projects.filter((project) => isOwnedRepository(project, PORTFOLIO_OWNER_USERNAME));
     const hasVercelProjects = projects.some((project) => project.vercel);
-    const [agentCounts, nextjsLatestRelease] = await Promise.all([
-        getOptionalValue(
-            () => getAgentCounts(ownerProjects),
-            { copilot: {}, codex: {}, claude: {} },
-            'project agent counts',
-        ),
-        hasVercelProjects
-            ? getOptionalValue(() => getNextjsLatestRelease(), {}, 'latest Next.js release')
-            : Promise.resolve({}),
-    ]);
+    const countsPromise = getOptionalValue(
+        () => getAgentCounts(ownerProjects),
+        { copilot: {}, codex: {}, claude: {} },
+        'project agent counts',
+    );
+    const nextjsReleasePromise = hasVercelProjects
+        ? getOptionalValue(() => getNextjsLatestRelease(), {}, 'latest Next.js release')
+        : Promise.resolve({});
 
-    return mapWithConcurrency(projects, PROJECT_ENRICHMENT_CONCURRENCY, async (project) => {
+    // Independent reads begin immediately; the shared request scheduler bounds I/O.
+    const enrichedPromise = mapWithConcurrency(projects, PROJECT_ENRICHMENT_CONCURRENCY, async (project) => {
         const repoOwner = project.owner?.login;
         const isOwnerRepo = isOwnedRepository(project, PORTFOLIO_OWNER_USERNAME);
         const [views, openAlertsBySeverity, vercelDetails] = await Promise.all([
@@ -796,8 +806,8 @@ async function enrichProjectsForCards(projects) {
                 : Promise.resolve(null),
             project.vercel && repoOwner
                 ? getOptionalValue(
-                    () => getRepositoryVercelDetails(repoOwner, project.name, nextjsLatestRelease),
-                    createEmptyVercelDetails(nextjsLatestRelease),
+                    () => getRepositoryVercelDetails(repoOwner, project.name, nextjsReleasePromise),
+                    createEmptyVercelDetails(),
                     `Vercel details for ${repoOwner}/${project.name}`,
                 )
                 : Promise.resolve(null),
@@ -809,17 +819,28 @@ async function enrichProjectsForCards(projects) {
                 isOwnerRepo,
                 views,
                 openAlertsBySeverity,
-                copilotPRCount: isOwnerRepo ? (agentCounts.copilot[getRepositoryKey(project)] ?? null) : null,
-                codexCount: isOwnerRepo ? (agentCounts.codex[getRepositoryKey(project)] ?? null) : null,
-                claudeCount: isOwnerRepo ? (agentCounts.claude[getRepositoryKey(project)] ?? null) : null,
             },
             vercel: project.vercel ? {
                 ...project.vercel,
-                details: vercelDetails ?? createEmptyVercelDetails(nextjsLatestRelease),
+                details: vercelDetails ?? createEmptyVercelDetails(),
             } : undefined,
         };
     });
+    const [enrichedProjects, agentCounts] = await Promise.all([enrichedPromise, countsPromise]);
+    return enrichedProjects.map((project) => {
+        const key = getRepositoryKey(project).toLowerCase();
+        return {
+            ...project,
+            ownerMetrics: {
+                ...project.ownerMetrics,
+                copilotPRCount: project.ownerMetrics.isOwnerRepo ? agentCounts.copilot[key] ?? null : null,
+                codexCount: project.ownerMetrics.isOwnerRepo ? agentCounts.codex[key] ?? null : null,
+                claudeCount: project.ownerMetrics.isOwnerRepo ? agentCounts.claude[key] ?? null : null,
+            },
+        };
+    });
 }
+
 
 export function isPortfolioOwnerUsername(username) {
     return typeof username === 'string'

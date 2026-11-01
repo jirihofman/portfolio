@@ -357,3 +357,72 @@ test('concurrent framework lookups reuse one release query', async () => {
     await h.run((data) => Promise.all(Array.from({ length: 5 }, () => data.getAstroLatestRelease())));
     assert.equal(calls, 1);
 });
+
+function projectResponse(url, options, repositories, batch) {
+    if (url.includes('/users/octocat/repos')) return json(repositories);
+    if (url.includes('/traffic/views')) return json({ uniques: 0, views: [] });
+    if (url.includes('/dependabot/alerts')) return json([]);
+    const body = JSON.parse(options.body);
+    if (body.query.includes('GetPinnedRepos')) return json({ data: { user: { pinnedItems: { nodes: [] } } } });
+    if (body.query.includes('BatchProjectAgentCounts')) return batch(body);
+    throw new Error(`Unexpected mock request: ${url}`);
+}
+const batchResult = (body) => json({ data: Object.fromEntries(
+    Object.keys(body.variables).map((key) => [key, { issueCount: 0 }]),
+) });
+
+test('traffic starts while agent counts are still pending', async () => {
+    let releaseBatch;
+    const gate = new Promise((resolve) => { releaseBatch = resolve; });
+    let trafficStarted;
+    const traffic = new Promise((resolve) => { trafficStarted = resolve; });
+    const h = await harness((url, options) => {
+        if (url.includes('/traffic/views')) trafficStarted();
+        return projectResponse(url, options, [repo], async (body) => {
+            await gate;
+            return batchResult(body);
+        });
+    }, { GITHUB_USERNAME: 'octocat' });
+    const work = h.run((data) => data.getOwnerProjectSecondaryData());
+    try {
+        await Promise.race([traffic, new Promise((_, reject) => setTimeout(() => reject(new Error('Traffic was blocked by agent counts')), 500))]);
+    } finally {
+        releaseBatch();
+    }
+    assert.equal((await work)['octocat/demo'].ownerMetrics.copilotPRCount, 0);
+});
+
+test('batch cache survives changed display order and repository metadata', async () => {
+    let repositories = [
+        { ...repo, updated_at: '2026-01-02' },
+        { ...repo, name: 'second', full_name: 'octocat/second', updated_at: '2026-01-01' },
+    ];
+    let batchCalls = 0;
+    const h = await harness((url, options) => projectResponse(url, options, repositories, (body) => {
+        batchCalls++;
+        return batchResult(body);
+    }), { GITHUB_USERNAME: 'octocat' });
+    await h.run((data) => data.getOwnerProjectSecondaryData());
+    repositories = repositories.map((project, index) => ({ ...project, updated_at: index ? '2026-02-01' : project.updated_at, stargazers_count: 99 }));
+    for (const [key, entry] of h.entries) if (key.includes('getRepos-success-v3')) entry.isStale = true;
+    await h.run((data) => data.getRepos('octocat'));
+    await h.run((data) => data.getOwnerProjectSecondaryData());
+    assert.equal(batchCalls, 1);
+});
+
+test('large project lists bound active agent batches independently of repository workers', async () => {
+    let active = 0;
+    let peak = 0;
+    let calls = 0;
+    const repositories = Array.from({ length: 45 }, (_, index) => ({ ...repo, name: `repo${index}`, full_name: `octocat/repo${index}` }));
+    const h = await harness((url, options) => projectResponse(url, options, repositories, async (body) => {
+        calls++;
+        peak = Math.max(peak, ++active);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        active--;
+        return batchResult(body);
+    }), { GITHUB_USERNAME: 'octocat' });
+    await h.run((data) => data.getOwnerProjectSecondaryData());
+    assert.equal(calls, 5);
+    assert.ok(peak <= 2, `Expected at most two active batches, got ${peak}`);
+});
