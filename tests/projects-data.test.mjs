@@ -426,3 +426,48 @@ test('large project lists bound active agent batches independently of repository
     assert.equal(calls, 5);
     assert.ok(peak <= 2, `Expected at most two active batches, got ${peak}`);
 });
+
+test('Dependabot counts include all open-alert cursor pages with server-side filtering', async () => {
+    const urls = [];
+    const h = await harness((url) => {
+        urls.push(url);
+        const parsed = new URL(url);
+        assert.equal(parsed.searchParams.get('state'), 'open');
+        assert.equal(parsed.searchParams.get('per_page'), '100');
+        assert.equal(parsed.searchParams.has('page'), false);
+        if (parsed.searchParams.has('after')) {
+            assert.equal(parsed.searchParams.get('after'), 'cursor-two');
+            return json([{ state: 'open', security_advisory: { severity: 'critical' } }]);
+        }
+        return json([{ state: 'open', security_advisory: { severity: 'high' } }], {
+            headers: { link: '<https://api.github.com/repos/octocat/demo/dependabot/alerts?state=open&per_page=100&after=cursor-two>; rel="next"' },
+        });
+    });
+    const alerts = await h.run((data) => data.getDependabotAlerts('octocat', 'demo'));
+    assert.equal(alerts.high, 1);
+    assert.equal(alerts.critical, 1);
+    assert.equal(urls.length, 2);
+});
+
+test('a failed later Dependabot page cannot cache a partial alert total', async () => {
+    const h = await harness((url) => new URL(url).searchParams.has('after')
+        ? json({}, { status: 502 })
+        : json([{ state: 'open', security_advisory: { severity: 'high' } }], {
+            headers: { link: '<https://api.github.com/repos/octocat/demo/dependabot/alerts?after=next>; rel="next"' },
+        }));
+    await assert.rejects(h.run((data) => data.getDependabotAlerts('octocat', 'demo')));
+    assert.equal(h.entries.size, 0);
+});
+
+test('unexpected pagination hosts and repeated cursors are rejected without caching', async () => {
+    for (const target of ['https://example.test/stolen', 'https://api.github.com/users/octocat/repos?per_page=100']) {
+        let calls = 0;
+        const h = await harness(() => {
+            calls++;
+            return json([repo], { headers: { link: `<${target}>; rel="next"` } });
+        });
+        await assert.rejects(h.run((data) => data.getRepos('octocat')));
+        assert.equal(calls, 1);
+        assert.equal(h.entries.size, 0);
+    }
+});
