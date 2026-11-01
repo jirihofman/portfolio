@@ -1,4 +1,5 @@
 import {
+    getOptionalValue,
     getRecentUserActivity,
     getPublishedReleaseSummary,
     getCopilotPRsAccountWide,
@@ -19,8 +20,8 @@ function joinWithAnd(items) {
 export const RecentActivity = async ({ username }) => {
 
     const [recentUserActivity, publishedReleaseSummary] = await Promise.all([
-        getRecentUserActivity(username),
-        getPublishedReleaseSummary(username),
+        getOptionalValue(() => getRecentUserActivity(username), [], 'recent activity'),
+        getOptionalValue(() => getPublishedReleaseSummary(username), null, 'release summary'),
     ]);
     const activitySummary = recentUserActivity.reduce((acc, activity) => {
 
@@ -84,9 +85,9 @@ export const RecentActivity = async ({ username }) => {
             <span className="text-sm">
                 {activitySummaryString && 'Recent public output: ' + activitySummaryString + '.'}
             </span>
-            <div className="text-sm">
+            {publishedReleaseSummary && <div className="text-sm">
                 Published {publishedReleaseSummary.releaseCount} GitHub release{publishedReleaseSummary.releaseCount === 1 ? '' : 's'} across {publishedReleaseSummary.repositoryCount} public repositor{publishedReleaseSummary.repositoryCount === 1 ? 'y' : 'ies'}.
-            </div>
+            </div>}
             {/* {JSON.stringify(recentUserActivity.map(a => a.payload?.review && Object.keys(a.payload?.review).join()), null, 4)} */}
             {/* {JSON.stringify(Object.keys(recentUserActivity[4]).join(), null, 4)} */}
             {/* {JSON.stringify(recentUserActivity.filter(a => a.type === 'PullRequestEvent')[2], null, 4)} */}
@@ -97,12 +98,16 @@ export const RecentActivity = async ({ username }) => {
 
 export const CopilotActivity = async ({ username }) => {
     const [copilotPRCount, codexCoauthoredCommitCount, codexLabeledPRCount, claudeCoauthoredCommitCount, claudeLabeledPRCount] = await Promise.all([
-        getCopilotPRsAccountWide(username),
-        getCodexCoauthoredCommitsAccountWide(username),
-        getCodexLabeledPRsAccountWide(username),
-        getClaudeCoauthoredCommitsAccountWide(username),
-        getClaudeLabeledPRsAccountWide(username),
+        getOptionalValue(() => getCopilotPRsAccountWide(username), null, 'getCopilotPRsAccountWide'),
+        getOptionalValue(() => getCodexCoauthoredCommitsAccountWide(username), null, 'getCodexCoauthoredCommitsAccountWide'),
+        getOptionalValue(() => getCodexLabeledPRsAccountWide(username), null, 'getCodexLabeledPRsAccountWide'),
+        getOptionalValue(() => getClaudeCoauthoredCommitsAccountWide(username), null, 'getClaudeCoauthoredCommitsAccountWide'),
+        getOptionalValue(() => getClaudeLabeledPRsAccountWide(username), null, 'getClaudeLabeledPRsAccountWide'),
     ]);
+
+    // Do not label an unavailable contribution source as a successful zero.
+    if ([copilotPRCount, codexCoauthoredCommitCount, codexLabeledPRCount,
+        claudeCoauthoredCommitCount, claudeLabeledPRCount].some((count) => count === null)) return null;
 
     const codexCount = codexCoauthoredCommitCount + codexLabeledPRCount;
     const claudeCount = claudeCoauthoredCommitCount + claudeLabeledPRCount;

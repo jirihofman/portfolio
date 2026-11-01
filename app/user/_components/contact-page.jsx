@@ -5,7 +5,7 @@ import { GoMail, GoPerson } from "react-icons/go";
 import data from "../../../data.json";
 import { Card } from "../../components/card";
 import { Navigation } from "../../components/nav";
-import { getSocialAccounts, getUser } from "../../data";
+import { getSocialAccounts, getUser, getOptionalValue } from "../../data";
 
 export async function ContactPage({
 	username,
@@ -13,10 +13,10 @@ export async function ContactPage({
 	user: providedUser,
 }) {
 	const [user, githubSocials] = await Promise.all([
-		providedUser || getUser(username),
-		getSocialAccounts(username),
+		providedUser || getOptionalValue(() => getUser(username), {}, 'profile'),
+		getOptionalValue(() => getSocialAccounts(username), [], 'social accounts'),
 	]);
-	const email = user.email || (!isCustomUser ? data.email : null);
+	const email = user?.email || (!isCustomUser ? data.email : null);
 	const contacts = [];
 
 	if (email) {

@@ -2,6 +2,7 @@
 // These wrappers provide automatic caching with configurable revalidation times.
 import { unstable_cache } from 'next/cache';
 import data from '../data.json';
+import { GitHubRequestError } from '../lib/github-errors.mjs';
 
 const revalidate = 60;
 const MINUTES_5 = 60 * 5;
@@ -37,52 +38,22 @@ function getGitHubHeaders(extraHeaders = {}) {
     return headers;
 }
 
-async function parseJsonResponse(res, context, fallback) {
-    try {
-        return await res.json();
-    } catch (error) {
-        console.error(`Failed to parse JSON for ${context}:`, error);
-        return cloneFallbackValue(fallback);
+// Fail inside the persistent cache; callers apply optional display fallbacks outside it.
+async function fetchGitHubResponse(url, { context, method = 'GET', body, headers } = {}) {
+    const res = await fetch(url, {
+        method,
+        body,
+        headers: getGitHubHeaders(headers),
+        cache: 'no-store',
+        signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
+    });
+    if (!res.ok) {
+        throw new GitHubRequestError(`GitHub API returned ${res.status} for ${context}.`, res.status);
     }
-}
-
-async function fetchGitHubResponse(url, { context, fallback = null, method = 'GET', body, headers, next, throwOnError = false } = {}) {
-    try {
-        const res = await fetch(url, {
-            method,
-            body,
-            headers: getGitHubHeaders(headers),
-            next,
-            signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
-        });
-        const contentType = res.headers.get('content-type') || '';
-        let payload = cloneFallbackValue(fallback);
-
-        if (contentType.includes('application/json')) {
-            payload = throwOnError ? await res.json() : await parseJsonResponse(res, context, fallback);
-        } else if (res.ok) {
-            if (throwOnError) {
-                throw new Error(`GitHub API returned a non-JSON response for ${context}.`);
-            }
-            console.error(`GitHub API returned a non-JSON response for ${context}.`);
-        }
-
-        if (!res.ok) {
-            if (throwOnError) {
-                throw new Error(`GitHub API returned ${res.status} for ${context}.`);
-            }
-            console.error(`GitHub API returned an error for ${context}.`, res.status, res.statusText);
-            return { ok: false, data: cloneFallbackValue(fallback), headers: res.headers };
-        }
-
-        return { ok: true, data: payload, headers: res.headers };
-    } catch (error) {
-        console.error(`GitHub API request failed for ${context}:`, error);
-        if (throwOnError) {
-            throw error;
-        }
-        return { ok: false, data: cloneFallbackValue(fallback), headers: new Headers() };
+    if (!(res.headers.get('content-type') || '').includes('application/json')) {
+        throw new GitHubRequestError(`GitHub API returned a non-JSON response for ${context}.`);
     }
+    return { ok: true, data: await res.json(), headers: res.headers };
 }
 
 async function fetchGitHubJson(url, options) {
@@ -90,33 +61,24 @@ async function fetchGitHubJson(url, options) {
     return response.data;
 }
 
-async function fetchGitHubGraphQL(query, variables, { context, fallback = null, next } = {}) {
+async function fetchGitHubGraphQL(query, variables, { context } = {}) {
     const response = await fetchGitHubResponse(GITHUB_GRAPHQL_URL, {
         context,
-        fallback,
         method: 'POST',
-        next,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query, variables }),
     });
-
-    if (!response.ok) {
-        return cloneFallbackValue(fallback);
+    if (response.data?.errors?.length || !response.data?.data) {
+        throw new GitHubRequestError(`GitHub GraphQL failed for ${context}.`);
     }
-
-    if (response.data?.errors) {
-        console.error(`GitHub GraphQL returned an error for ${context}.`, response.data.errors);
-        return cloneFallbackValue(fallback);
-    }
-
-    return response.data?.data ?? cloneFallbackValue(fallback);
+    return response.data.data;
 }
 
 function hasNextPage(linkHeader) {
     return Boolean(linkHeader?.split(',').some((link) => link.includes('rel="next"')));
 }
 
-async function fetchPaginatedGitHubArray(initialUrl, { context, next, throwOnError = false } = {}) {
+async function fetchPaginatedGitHubArray(initialUrl, { context } = {}) {
     const items = [];
     let page = 1;
     let shouldContinue = true;
@@ -130,23 +92,10 @@ async function fetchPaginatedGitHubArray(initialUrl, { context, next, throwOnErr
 
         const response = await fetchGitHubResponse(url.toString(), {
             context: `${context} (page ${page})`,
-            fallback: [],
-            next,
-            throwOnError,
-        });
-
-        if (!response.ok) {
-            break;
-        }
+            });
 
         if (!Array.isArray(response.data)) {
-            if (throwOnError) {
-                throw new Error(`GitHub API returned an unexpected payload for ${context} on page ${page}.`);
-            }
-            console.error(`GitHub API returned an unexpected payload for ${context} on page ${page}.`, {
-                payloadType: typeof response.data,
-            });
-            break;
+            throw new GitHubRequestError(`GitHub API returned an unexpected payload for ${context} on page ${page}.`);
         }
 
         items.push(...response.data);
@@ -191,7 +140,7 @@ function chunkItems(items, size) {
     return chunks;
 }
 
-async function getOptionalValue(factory, fallback, context) {
+export async function getOptionalValue(factory, fallback, context) {
     try {
         return await factory();
     } catch (error) {
@@ -300,32 +249,35 @@ function buildClaudeLabeledPRRepoSearchQuery(username, reponame) {
 // TODO: Implement option to switch between info for authenticated user and other users.
 export const getUser = unstable_cache(async (username) => {
     console.log('Fetching user data for', username);
-    const response = await fetchGitHubJson(`${GITHUB_API_URL}/users/${username}`, {
-        context: `user data for ${username}`,
-        fallback: {},
-    });
-    return response;
-}, ['getUser'], { revalidate });
+    try {
+        const response = await fetchGitHubJson(`${GITHUB_API_URL}/users/${username}`, {
+            context: `user data for ${username}`,
+        });
+        if (!response?.id) throw new GitHubRequestError('GitHub returned an invalid user.');
+        return response;
+    } catch (error) {
+        if (error.status === 404) return null;
+        throw error;
+    }
+}, ['getUser-success-v3'], { revalidate });
 
 // Use a new key to discard empty/partial lists cached by the old failure handling.
 export const getRepos = unstable_cache(async (username) => {
     console.log('Fetching repos for', username);
     const response = await fetchPaginatedGitHubArray(`${GITHUB_API_URL}/users/${username}/repos?per_page=100`, {
         context: `repositories for ${username}`,
-        // Reject incomplete fetches so revalidation preserves the last successful list.
-        throwOnError: true,
     });
     return response;
-}, ['getRepos-v2'], { revalidate: HOURS_1 });
+}, ['getRepos-success-v3'], { revalidate: HOURS_1 });
 
 export const getSocialAccounts = unstable_cache(async (username) => {
     console.log('Fetching social accounts for', username);
     const response = await fetchGitHubJson(`${GITHUB_API_URL}/users/${username}/social_accounts`, {
         context: `social accounts for ${username}`,
-        fallback: [],
     });
-    return Array.isArray(response) ? response : [];
-}, ['getSocialAccounts'], { revalidate: HOURS_12 });
+    if (!Array.isArray(response)) throw new GitHubRequestError('GitHub returned invalid social accounts.');
+    return response;
+}, ['getSocialAccounts-success-v3'], { revalidate: HOURS_12 });
 
 export const getPinnedRepos = unstable_cache(async (username) => {
     console.log('Fetching pinned repos for', username);
@@ -343,10 +295,9 @@ export const getPinnedRepos = unstable_cache(async (username) => {
         }
     `, { username }, {
         context: `pinned repositories for ${username}`,
-        fallback: { user: { pinnedItems: { nodes: [] } } },
     });
     return pinned.user?.pinnedItems?.nodes?.map((node) => node?.name).filter(Boolean) ?? [];
-}, ['getPinnedRepos'], { revalidate: HOURS_12 });
+}, ['getPinnedRepos-success-v3'], { revalidate: HOURS_12 });
 
 export const getUserOrganizations = unstable_cache(async (username) => {
     console.log('Fetching organizations for', username);
@@ -366,10 +317,9 @@ export const getUserOrganizations = unstable_cache(async (username) => {
         }
     `, { username }, {
         context: `organizations for ${username}`,
-        fallback: { user: { organizations: { nodes: [] } } },
     });
     return { data: orgs };
-}, ['getUserOrganizations'], { revalidate: HOURS_12 });
+}, ['getUserOrganizations-success-v3'], { revalidate: HOURS_12 });
 
 export const getVercelProjects = unstable_cache(async () => {
     if (!process.env.VC_TOKEN) {
@@ -384,38 +334,27 @@ export const getVercelProjects = unstable_cache(async () => {
     let url = `${baseUrl}?limit=${limit}`;
     const allProjects = [];
 
-    try {
-        do {
-            const res = await fetch(url, {
-                headers: { Authorization: `Bearer ${process.env.VC_TOKEN}` },
-                signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
-            });
+    do {
+        const res = await fetch(url, {
+            headers: { Authorization: `Bearer ${process.env.VC_TOKEN}` },
+            signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
+        });
 
-            if (!res.ok) {
-                console.error('Vercel API returned an error.', res.status, res.statusText);
-                return { projects: [] };
-            }
+        if (!res.ok) {
+            throw new Error(`Vercel API returned ${res.status}.`);
+        }
 
-            let data;
-            try {
-                data = await res.json();
-            } catch (error) {
-                console.error('Failed to parse Vercel API response.', error);
-                return { projects: [] };
-            }
+        const data = await res.json();
 
-            allProjects.push(...(data.projects ?? []));
-            nextCursor = data.pagination?.next || null;
-            url = nextCursor ? `${baseUrl}?limit=${limit}&until=${nextCursor}` : '';
-        } while (nextCursor);
+        if (!Array.isArray(data.projects)) throw new Error('Vercel returned invalid projects.');
+        allProjects.push(...data.projects);
+        nextCursor = data.pagination?.next || null;
+        url = nextCursor ? `${baseUrl}?limit=${limit}&until=${nextCursor}` : '';
+    } while (nextCursor);
 
-        console.log('Vercel projects count:', allProjects.length);
-        return { projects: allProjects };
-    } catch (error) {
-        console.error('Vercel API fetch failed:', error);
-        return { projects: [] };
-    }
-}, ['getVercelProjects'], { revalidate: HOURS_24 });
+    console.log('Vercel projects count:', allProjects.length);
+    return { projects: allProjects };
+}, ['getVercelProjects-success-v3'], { revalidate: HOURS_24 });
 
 /** Cache revalidated every 6 hours. */
 export const getNextjsLatestRelease = unstable_cache(async () => {
@@ -430,7 +369,6 @@ export const getNextjsLatestRelease = unstable_cache(async () => {
         }
     `, { repoName: 'next.js', owner: 'vercel' }, {
         context: 'latest Next.js release',
-        fallback: { repository: { latestRelease: null } },
     });
 
     if (!nextjsLatest.repository?.latestRelease) {
@@ -441,7 +379,7 @@ export const getNextjsLatestRelease = unstable_cache(async () => {
         tagName: cleanVersionTag(nextjsLatest.repository.latestRelease.tagName),
         updatedAt: nextjsLatest.repository.latestRelease.updatedAt,
     };
-}, ['getNextjsLatestRelease'], { revalidate: HOURS_6 });
+}, ['getNextjsLatestRelease-success-v3'], { revalidate: HOURS_6 });
 
 /**
  * Clean version from package.json dependency to extract just the semantic version
@@ -492,7 +430,6 @@ export const getFrameworkLatestRelease = unstable_cache(async (repoName, owner) 
         }
     `, { repoName, owner }, {
         context: `latest release for ${owner}/${repoName}`,
-        fallback: { repository: { latestRelease: null } },
     });
 
     if (!latest.repository?.latestRelease) {
@@ -504,7 +441,7 @@ export const getFrameworkLatestRelease = unstable_cache(async (repoName, owner) 
         tagName: cleanVersionTag(latest.repository.latestRelease.tagName),
         updatedAt: latest.repository.latestRelease.updatedAt,
     };
-}, ['getFrameworkLatestRelease'], { revalidate: HOURS_6 });
+}, ['getFrameworkLatestRelease-success-v3'], { revalidate: HOURS_6 });
 
 // Specific functions for each framework
 export const getAstroLatestRelease = () => getFrameworkLatestRelease('astro', 'withastro');
@@ -538,7 +475,6 @@ async function fetchRepositoryContentInfo(username, reponame) {
         }
     `, { owner: username, repoName: reponame }, {
         context: `repository content info for ${username}/${reponame}`,
-        fallback: { repository: null },
     });
 
     return response.repository;
@@ -546,7 +482,7 @@ async function fetchRepositoryContentInfo(username, reponame) {
 
 const getRepositoryContentInfo = unstable_cache(
     fetchRepositoryContentInfo,
-    ['getRepositoryContentInfo'],
+    ['getRepositoryContentInfo-success-v3'],
     { revalidate: HOURS_24 },
 );
 
@@ -575,7 +511,7 @@ function getRouterInfoFromRepository(repository) {
 const getCachedRepositoryRouterInfo = unstable_cache(async (repoOwner, repoName) => {
     const repository = await fetchRepositoryContentInfo(repoOwner, repoName);
     return getRouterInfoFromRepository(repository);
-}, ['checkAppJsxExistence'], { revalidate: HOURS_24 });
+}, ['checkAppJsxExistence-success-v3'], { revalidate: HOURS_24 });
 
 export async function getRepositoryPackageJson(username, reponame) {
     const repository = await getRepositoryContentInfo(username, reponame);
@@ -588,7 +524,7 @@ export const getRecentUserActivity = unstable_cache(async (username) => {
         context: `recent activity for ${username}`,
     });
     return response;
-}, ['getRecentUserActivity'], { revalidate: MINUTES_5 });
+}, ['getRecentUserActivity-success-v3'], { revalidate: MINUTES_5 });
 
 export const getPublishedReleaseSummary = unstable_cache(async (username) => {
     let after = null;
@@ -619,13 +555,16 @@ export const getPublishedReleaseSummary = unstable_cache(async (username) => {
             }
         `, { username, after }, {
             context: `published release summary for ${username}`,
-            fallback: { user: { repositories: { nodes: [], pageInfo: { endCursor: null, hasNextPage: false } } } },
         });
 
         const repositories = response.user?.repositories;
+        if (!Array.isArray(repositories?.nodes) || !repositories.pageInfo) {
+            throw new GitHubRequestError('GitHub returned an incomplete release summary.');
+        }
 
         for (const repository of repositories?.nodes ?? []) {
-            const count = repository?.releases?.totalCount ?? 0;
+            const count = repository?.releases?.totalCount;
+            if (typeof count !== 'number') throw new GitHubRequestError('GitHub returned an invalid release count.');
             releaseCount += count;
             repositoryCount += count > 0 ? 1 : 0;
         }
@@ -634,16 +573,15 @@ export const getPublishedReleaseSummary = unstable_cache(async (username) => {
     } while (after);
 
     return { releaseCount, repositoryCount };
-}, ['getPublishedReleaseSummary'], { revalidate: HOURS_6 });
+}, ['getPublishedReleaseSummary-success-v3'], { revalidate: HOURS_6 });
 
 export const getTrafficPageViews = unstable_cache(async (username, reponame) => {
     const response = await fetchGitHubResponse(`${GITHUB_API_URL}/repos/${username}/${reponame}/traffic/views`, {
         context: `traffic views for ${username}/${reponame}`,
-        fallback: null,
     });
 
-    if (!response.ok || response.data === null || response.data === undefined) {
-        return null;
+    if (!response.data || typeof response.data.uniques !== 'number' || !Array.isArray(response.data.views)) {
+        throw new GitHubRequestError('GitHub returned invalid traffic metrics.');
     }
 
     const sumUniques = response.data.uniques || 0;
@@ -654,17 +592,15 @@ export const getTrafficPageViews = unstable_cache(async (username, reponame) => 
     const todayUniques = response.data.views?.find((day) => day.timestamp.startsWith(yesterday))?.uniques || 0;
 
     return { sumUniques, todayUniques };
-}, ['getTrafficPageViews'], { revalidate: HOURS_6 });
+}, ['getTrafficPageViews-success-v3'], { revalidate: HOURS_6 });
 
 export const getDependabotAlerts = unstable_cache(async (username, reponame) => {
     const response = await fetchGitHubResponse(`${GITHUB_API_URL}/repos/${username}/${reponame}/dependabot/alerts`, {
         context: `Dependabot alerts for ${username}/${reponame}`,
-        fallback: null,
-        next: { revalidate: HOURS_12 },
     });
 
-    if (!response.ok || response.data === null || response.data === undefined || !Array.isArray(response.data)) {
-        return null;
+    if (!Array.isArray(response.data)) {
+        throw new GitHubRequestError('GitHub returned invalid Dependabot alerts.');
     }
 
     // If dependabot is not enabled, the response will be an object, not an array.
@@ -676,7 +612,7 @@ export const getDependabotAlerts = unstable_cache(async (username, reponame) => 
     }, {});
 
     return openAlertsBySeverity;
-}, ['getDependabotAlerts'], { revalidate: HOURS_12 });
+}, ['getDependabotAlerts-success-v3'], { revalidate: HOURS_12 });
 
 /**
  * Determines if a repository is using Next.js App Router or legacy pages/_app.jsx. Or both.
@@ -690,7 +626,7 @@ export async function checkAppJsxExistence(repoOwner, repoName) {
     return getCachedRepositoryRouterInfo(repoOwner, repoName);
 }
 
-async function fetchAgentCountChunk(repositories) {
+const fetchAgentCountChunk = unstable_cache(async (repositories) => {
     const searchableRepositories = repositories.filter((project) => {
         const owner = project.owner?.login;
         return buildCopilotRepoSearchQuery(owner, project.name)
@@ -733,8 +669,6 @@ async function fetchAgentCountChunk(repositories) {
         }
     `, variables, {
         context: `batched agent counts for ${searchableRepositories.length} repositories`,
-        fallback: {},
-        next: { revalidate: HOURS_12 },
     });
 
     return searchableRepositories.reduce((counts, project, index) => {
@@ -744,7 +678,7 @@ async function fetchAgentCountChunk(repositories) {
         counts.claude[key] = response[`claude${index}`]?.issueCount ?? null;
         return counts;
     }, { copilot: {}, codex: {}, claude: {} });
-}
+}, ['agent-count-chunk-success-v1'], { revalidate: HOURS_12 });
 
 async function getAgentCounts(repositories) {
     const chunks = await Promise.all(
@@ -1016,15 +950,14 @@ export const getCopilotPRs = unstable_cache(async (username, reponame) => {
             }
         `, { q: query }, {
             context: `Copilot PRs for ${username}/${reponame}`,
-            fallback: { search: { issueCount: 0 } },
-            next: { revalidate: HOURS_12 },
         });
-        return response.search?.issueCount || 0;
+        if (typeof response.search?.issueCount !== 'number') throw new GitHubRequestError('GitHub returned an invalid search count.');
+        return response.search.issueCount;
     } catch (error) {
         console.error(`Error getting Copilot PRs for ${username}/${reponame}:`, error);
-        return 0;
+        throw error;
     }
-}, ['getCopilotPRs'], { revalidate: HOURS_12 });
+}, ['getCopilotPRs-success-v3'], { revalidate: HOURS_12 });
 
 /**
  * Get the total number of merged pull requests created by Copilot across all repositories for a user.
@@ -1051,15 +984,15 @@ export const getCopilotPRsAccountWide = unstable_cache(async (username) => {
             }
         `, { q: query }, {
             context: `account-wide Copilot PRs for ${username}`,
-            fallback: { search: { issueCount: 0 } },
         });
 
-        return response.search?.issueCount || 0;
+        if (typeof response.search?.issueCount !== 'number') throw new GitHubRequestError('GitHub returned an invalid search count.');
+        return response.search.issueCount;
     } catch (error) {
         console.error(`Error getting account-wide Copilot PRs for ${username}:`, error);
-        return 0;
+        throw error;
     }
-}, ['getCopilotPRsAccountWide'], { revalidate: HOURS_12 });
+}, ['getCopilotPRsAccountWide-success-v3'], { revalidate: HOURS_12 });
 
 /**
  * Get the total number of commits authored by the user that include the "Co-authored-by: Codex" trailer.
@@ -1079,17 +1012,16 @@ export const getCodexCoauthoredCommitsAccountWide = unstable_cache(async (userna
 
         const response = await fetchGitHubJson(`${GITHUB_API_URL}/search/commits?q=${encodeURIComponent(query)}&per_page=1`, {
             context: `account-wide Codex co-authored commits for ${username}`,
-            fallback: { total_count: 0 },
             headers: { Accept: 'application/vnd.github.cloak-preview+json' },
-            next: { revalidate: HOURS_12 },
         });
 
-        return typeof response?.total_count === 'number' ? response.total_count : 0;
+        if (typeof response?.total_count !== 'number' || response.incomplete_results) throw new GitHubRequestError('GitHub returned an incomplete commit count.');
+        return response.total_count;
     } catch (error) {
         console.error(`Error getting account-wide Codex co-authored commits for ${username}:`, error);
-        return 0;
+        throw error;
     }
-}, ['getCodexCoauthoredCommitsAccountWide'], { revalidate: HOURS_12 });
+}, ['getCodexCoauthoredCommitsAccountWide-success-v3'], { revalidate: HOURS_12 });
 
 /**
  * Get the total number of commits authored by the user that include the "Co-authored-by: Claude" trailer.
@@ -1109,17 +1041,16 @@ export const getClaudeCoauthoredCommitsAccountWide = unstable_cache(async (usern
 
         const response = await fetchGitHubJson(`${GITHUB_API_URL}/search/commits?q=${encodeURIComponent(query)}&per_page=1`, {
             context: `account-wide Claude co-authored commits for ${username}`,
-            fallback: { total_count: 0 },
             headers: { Accept: 'application/vnd.github.cloak-preview+json' },
-            next: { revalidate: HOURS_12 },
         });
 
-        return typeof response?.total_count === 'number' ? response.total_count : 0;
+        if (typeof response?.total_count !== 'number' || response.incomplete_results) throw new GitHubRequestError('GitHub returned an incomplete commit count.');
+        return response.total_count;
     } catch (error) {
         console.error(`Error getting account-wide Claude co-authored commits for ${username}:`, error);
-        return 0;
+        throw error;
     }
-}, ['getClaudeCoauthoredCommitsAccountWide'], { revalidate: HOURS_12 });
+}, ['getClaudeCoauthoredCommitsAccountWide-success-v3'], { revalidate: HOURS_12 });
 
 /**
  * Get the total number of merged pull requests authored by the user that have the "codex" label.
@@ -1145,15 +1076,15 @@ export const getCodexLabeledPRsAccountWide = unstable_cache(async (username) => 
             }
         `, { q: query }, {
             context: `account-wide codex-labeled PRs for ${username}`,
-            fallback: { search: { issueCount: 0 } },
         });
 
-        return response.search?.issueCount || 0;
+        if (typeof response.search?.issueCount !== 'number') throw new GitHubRequestError('GitHub returned an invalid search count.');
+        return response.search.issueCount;
     } catch (error) {
         console.error(`Error getting account-wide codex-labeled PRs for ${username}:`, error);
-        return 0;
+        throw error;
     }
-}, ['getCodexLabeledPRsAccountWide'], { revalidate: HOURS_12 });
+}, ['getCodexLabeledPRsAccountWide-success-v3'], { revalidate: HOURS_12 });
 
 /**
  * Get the total number of merged pull requests authored by the user that have the "claude" label.
@@ -1179,15 +1110,15 @@ export const getClaudeLabeledPRsAccountWide = unstable_cache(async (username) =>
             }
         `, { q: query }, {
             context: `account-wide claude-labeled PRs for ${username}`,
-            fallback: { search: { issueCount: 0 } },
         });
 
-        return response.search?.issueCount || 0;
+        if (typeof response.search?.issueCount !== 'number') throw new GitHubRequestError('GitHub returned an invalid search count.');
+        return response.search.issueCount;
     } catch (error) {
         console.error(`Error getting account-wide claude-labeled PRs for ${username}:`, error);
-        return 0;
+        throw error;
     }
-}, ['getClaudeLabeledPRsAccountWide'], { revalidate: HOURS_12 });
+}, ['getClaudeLabeledPRsAccountWide-success-v3'], { revalidate: HOURS_12 });
 
 /**
  * Detects frameworks from package.json dependencies and devDependencies
