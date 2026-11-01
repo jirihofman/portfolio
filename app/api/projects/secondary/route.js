@@ -20,16 +20,17 @@ export async function GET(request) {
 	}
 
 	try {
-		const repositories = await getOwnerProjectSecondaryData();
+		const { repositories, complete } = await getOwnerProjectSecondaryData();
 
 		return Response.json(
 			{
 				schemaVersion: 1,
+				complete,
 				generatedAt: new Date().toISOString(),
 				repositories,
 			},
 			{
-				headers: { "Cache-Control": CACHE_CONTROL },
+				headers: { "Cache-Control": complete ? CACHE_CONTROL : "no-store" },
 			},
 		);
 	} catch (error) {

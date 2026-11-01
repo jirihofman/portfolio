@@ -1,5 +1,7 @@
 "use client";
 
+import { selectSecondarySnapshot } from "../../lib/project-secondary-snapshot.mjs";
+
 import {
 	createContext,
 	useContext,
@@ -10,7 +12,7 @@ import {
 } from "react";
 
 const SecondaryDataContext = createContext(null);
-const STORAGE_KEY = "portfolio:project-secondary:v1";
+const STORAGE_KEY = "portfolio:project-secondary:v2";
 const CLIENT_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const LOADER_DELAY_MS = 200;
 let memorySnapshot = null;
@@ -56,14 +58,7 @@ function readClientSnapshot() {
 	return null;
 }
 
-function storeClientSnapshot(payload) {
-	const snapshot = {
-		schemaVersion: payload.schemaVersion,
-		generatedAt: payload.generatedAt,
-		repositories: payload.repositories,
-		cachedAt: Date.now(),
-	};
-
+function storeClientSnapshot(snapshot) {
 	memorySnapshot = snapshot;
 
 	try {
@@ -132,7 +127,8 @@ export function SecondaryDataProvider({ children }) {
 					throw new Error("Secondary data has an unsupported shape");
 				}
 
-				const snapshot = storeClientSnapshot(payload);
+				const snapshot = selectSecondarySnapshot(readClientSnapshot(), payload);
+				if (payload.complete === true) storeClientSnapshot(snapshot);
 
 				if (isCurrent) {
 					setState((currentState) =>

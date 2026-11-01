@@ -13,14 +13,14 @@ const source = await readFile(appDataUrl, 'utf8');
 const config = JSON.parse(await readFile(new URL('../data.json', import.meta.url), 'utf8'));
 let harnessId = 0;
 
-async function harness(fetch, env = {}) {
+async function harness(fetch, env = {}, moduleSource = source) {
     const entries = new Map();
     const context = vm.createContext({
         fetch, Headers, URL, AbortSignal, structuredClone,
         process: { env: { GH_TOKEN: `cache-test-token-${++harnessId}`, ...env } },
         console: { log() {}, error() {} },
     });
-    const module = new vm.SourceTextModule(source, { context });
+    const module = new vm.SourceTextModule(moduleSource, { context });
     await module.link(async (specifier) => {
         const exports = specifier === 'next/cache'
             ? { unstable_cache }
@@ -389,7 +389,7 @@ test('traffic starts while agent counts are still pending', async () => {
     } finally {
         releaseBatch();
     }
-    assert.equal((await work)['octocat/demo'].ownerMetrics.copilotPRCount, 0);
+    assert.equal((await work).repositories['octocat/demo'].ownerMetrics.copilotPRCount, 0);
 });
 
 test('batch cache survives changed display order and repository metadata', async () => {
@@ -526,4 +526,29 @@ test('expired authenticated profile data revalidates with ETag and keeps its bod
     await h.run((data) => data.getUser('octocat'));
     assert.equal((await h.run((data) => data.getUser('octocat'))).id, 1);
     assert.equal(calls, 2);
+});
+
+test('secondary snapshots distinguish transient failures from expected inaccessible metrics', async () => {
+    for (const status of [403, 429, 502]) {
+        const h = await harness((url, options) => {
+            if (url.includes('/traffic/views')) return json({ message: status === 403 ? 'Resource not accessible' : 'Temporary failure' }, { status });
+            return projectResponse(url, options, [repo], batchResult);
+        }, { GITHUB_USERNAME: 'octocat' });
+        const snapshot = await h.run((data) => data.getOwnerProjectSecondaryData());
+        assert.equal(snapshot.complete, status === 403);
+        assert.equal(snapshot.repositories['octocat/demo'].ownerMetrics.views, null);
+    }
+});
+
+test('changing loader implementation invalidates the persistent cache despite single-flight wrappers', async () => {
+    const env = { GH_TOKEN: 'same-credential-for-loader-version-test' };
+    const first = await harness(() => json({ id: 1 }), env);
+    await first.run((data) => data.getUser('octocat'));
+    const updatedSource = source.replace("console.log('Fetching user data for', username);", "console.log('Loading updated user profile', username);");
+    assert.notEqual(updatedSource, source);
+    let loads = 0;
+    const updated = await harness(() => { loads++; return json({ id: 2 }); }, env, updatedSource);
+    for (const [key, entry] of first.entries) updated.entries.set(key, entry);
+    assert.equal((await updated.run((data) => data.getUser('octocat'))).id, 2);
+    assert.equal(loads, 1);
 });
