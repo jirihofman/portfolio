@@ -145,3 +145,9 @@ When the OpenRouter key is configured, the main profile can show a short sentenc
 The sentence requires at least 10 total requests, a leading model with at least 60% of requests, and a lead over the runner-up of at least 20 percentage points. These are conservative display heuristics, not a statistical confidence claim. With fewer than 100 requests to the leading model it says “I dabble with [model] on OpenRouter lately.” At 100 or more it says “I use [model] a lot on OpenRouter lately.” Missing, inconsistent, tied, or inconclusive data produces no sentence. Model versions are retained; unfamiliar model IDs are displayed as supplied rather than guessed.
 
 Run `node --test lib/model-preference.test.mjs` to check these thresholds and naming behavior.
+
+## GitHub request controls
+
+GitHub reads share a bounded queue (four active requests per credential, up to 64 waiting for at most two seconds). Rate-limit responses establish a cooldown using GitHub's response headers; REST search, REST core, and GraphQL have separate primary budgets, while secondary throttling pauses all three. Safe reads retry transient failures once with jitter. Throttling and upstream errors do not replace successful cached data. GraphQL and owner-only endpoints are skipped when no GitHub token is configured.
+
+For multiple server instances or deployments using the same GitHub token, configure `GITHUB_REDIS_REST_URL` and `GITHUB_REDIS_REST_TOKEN` with a shared Redis REST database. The existing `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` names are also accepted. Atomic Redis leases coordinate concurrency and cooldowns across instances; keys contain a credential hash, never the token. A configured but unavailable coordinator fails closed. Without Redis, controls apply within each process only; they cannot enforce a token-wide limit across instances. No Redis service is provisioned automatically.

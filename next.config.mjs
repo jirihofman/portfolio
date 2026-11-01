@@ -1,5 +1,7 @@
 import data from "./data.json" with { type: "json" };
 
+import { scheduleGitHubRequest } from "./lib/github-request-scheduler.mjs";
+
 const GITHUB_FETCH_TIMEOUT_MS = 5_000;
 
 async function getGitHubUsername() {
@@ -8,12 +10,14 @@ async function getGitHubUsername() {
     }
 
     try {
-        const response = await fetch("https://api.github.com/user", {
+        const url = "https://api.github.com/user";
+        const options = {
             headers: {
                 Authorization: `Bearer ${process.env.GH_TOKEN}`,
             },
             signal: AbortSignal.timeout(GITHUB_FETCH_TIMEOUT_MS),
-        });
+        };
+        const response = await scheduleGitHubRequest(url, options, (signal) => fetch(url, { ...options, signal }));
 
         if (!response.ok) {
             return data.githubUsername;
