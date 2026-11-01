@@ -3,7 +3,9 @@
 import { unstable_cache } from 'next/cache';
 import data from '../data.json';
 import { GitHubRequestError } from '../lib/github-errors.mjs';
-import { scheduleGitHubRequest } from '../lib/github-request-scheduler.mjs';
+import { createHash } from 'node:crypto';
+import { singleFlight, normalizeGitHubArguments } from '../lib/single-flight.mjs';
+import { scheduleGitHubRequest, admitGitHubLookup } from '../lib/github-request-scheduler.mjs';
 
 const revalidate = 60;
 const MINUTES_5 = 60 * 5;
@@ -17,6 +19,16 @@ const AGENT_GRAPHQL_BATCH_SIZE = 10;
 const EXTERNAL_FETCH_TIMEOUT_MS = 10_000;
 const PROJECT_ENRICHMENT_CONCURRENCY = 5;
 const PORTFOLIO_OWNER_USERNAME = process.env.GITHUB_USERNAME || data.githubUsername;
+
+// Normalize before both cache lookup and in-flight lookup. Credential changes
+// invalidate permission-dependent data without putting secrets into cache keys.
+function cacheData(load, keys, options) {
+    const scope = createHash('sha256').update(JSON.stringify([
+        process.env.GH_TOKEN || '', process.env.VC_TOKEN || '',
+    ])).digest('hex');
+    const cached = unstable_cache(singleFlight(load), ['github-data-v4', scope, ...keys], options);
+    return singleFlight(cached, normalizeGitHubArguments);
+}
 
 function cloneFallbackValue(fallback) {
     if (fallback === null || fallback === undefined || typeof fallback !== 'object') {
@@ -246,8 +258,9 @@ function buildClaudeLabeledPRRepoSearchQuery(username, reponame) {
 }
 
 // TODO: Implement option to switch between info for authenticated user and other users.
-export const getUser = unstable_cache(async (username) => {
+export const getUser = cacheData(async (username) => {
     console.log('Fetching user data for', username);
+    await admitGitHubLookup({ headers: getGitHubHeaders() });
     try {
         const response = await fetchGitHubJson(`${GITHUB_API_URL}/users/${username}`, {
             context: `user data for ${username}`,
@@ -261,7 +274,7 @@ export const getUser = unstable_cache(async (username) => {
 }, ['getUser-success-v3'], { revalidate });
 
 // Use a new key to discard empty/partial lists cached by the old failure handling.
-export const getRepos = unstable_cache(async (username) => {
+export const getRepos = cacheData(async (username) => {
     console.log('Fetching repos for', username);
     const response = await fetchPaginatedGitHubArray(`${GITHUB_API_URL}/users/${username}/repos?per_page=100`, {
         context: `repositories for ${username}`,
@@ -269,7 +282,7 @@ export const getRepos = unstable_cache(async (username) => {
     return response;
 }, ['getRepos-success-v3'], { revalidate: HOURS_1 });
 
-export const getSocialAccounts = unstable_cache(async (username) => {
+export const getSocialAccounts = cacheData(async (username) => {
     console.log('Fetching social accounts for', username);
     const response = await fetchGitHubJson(`${GITHUB_API_URL}/users/${username}/social_accounts`, {
         context: `social accounts for ${username}`,
@@ -278,7 +291,7 @@ export const getSocialAccounts = unstable_cache(async (username) => {
     return response;
 }, ['getSocialAccounts-success-v3'], { revalidate: HOURS_12 });
 
-export const getPinnedRepos = unstable_cache(async (username) => {
+export const getPinnedRepos = cacheData(async (username) => {
     console.log('Fetching pinned repos for', username);
     const pinned = await fetchGitHubGraphQL(`
         query GetPinnedRepos($username: String!) {
@@ -298,7 +311,7 @@ export const getPinnedRepos = unstable_cache(async (username) => {
     return pinned.user?.pinnedItems?.nodes?.map((node) => node?.name).filter(Boolean) ?? [];
 }, ['getPinnedRepos-success-v3'], { revalidate: HOURS_12 });
 
-export const getUserOrganizations = unstable_cache(async (username) => {
+export const getUserOrganizations = cacheData(async (username) => {
     console.log('Fetching organizations for', username);
     const orgs = await fetchGitHubGraphQL(`
         query GetUserOrganizations($username: String!) {
@@ -320,7 +333,7 @@ export const getUserOrganizations = unstable_cache(async (username) => {
     return { data: orgs };
 }, ['getUserOrganizations-success-v3'], { revalidate: HOURS_12 });
 
-export const getVercelProjects = unstable_cache(async () => {
+export const getVercelProjects = cacheData(async () => {
     if (!process.env.VC_TOKEN) {
         console.log('No Vercel token found - no projects will be shown.');
         return { projects: [] };
@@ -356,7 +369,7 @@ export const getVercelProjects = unstable_cache(async () => {
 }, ['getVercelProjects-success-v3'], { revalidate: HOURS_24 });
 
 /** Cache revalidated every 6 hours. */
-export const getNextjsLatestRelease = unstable_cache(async () => {
+export const getNextjsLatestRelease = cacheData(async () => {
     const nextjsLatest = await fetchGitHubGraphQL(`
         query GetNextJsLatestRelease($repoName: String!, $owner: String!) {
             repository(name: $repoName, owner: $owner) {
@@ -417,7 +430,7 @@ function cleanVersionTag(tagName) {
  * @param {string} owner - Repository owner
  * @returns {Object} Object with tagName and updatedAt
  */
-export const getFrameworkLatestRelease = unstable_cache(async (repoName, owner) => {
+export const getFrameworkLatestRelease = cacheData(async (repoName, owner) => {
     const latest = await fetchGitHubGraphQL(`
         query GetFrameworkLatestRelease($repoName: String!, $owner: String!) {
             repository(name: $repoName, owner: $owner) {
@@ -479,7 +492,7 @@ async function fetchRepositoryContentInfo(username, reponame) {
     return response.repository;
 }
 
-const getRepositoryContentInfo = unstable_cache(
+const getRepositoryContentInfo = cacheData(
     fetchRepositoryContentInfo,
     ['getRepositoryContentInfo-success-v3'],
     { revalidate: HOURS_24 },
@@ -507,17 +520,12 @@ function getRouterInfoFromRepository(repository) {
     };
 }
 
-const getCachedRepositoryRouterInfo = unstable_cache(async (repoOwner, repoName) => {
-    const repository = await fetchRepositoryContentInfo(repoOwner, repoName);
-    return getRouterInfoFromRepository(repository);
-}, ['checkAppJsxExistence-success-v3'], { revalidate: HOURS_24 });
-
 export async function getRepositoryPackageJson(username, reponame) {
     const repository = await getRepositoryContentInfo(username, reponame);
     return parseRepositoryPackageJson(repository, username, reponame);
 }
 
-export const getRecentUserActivity = unstable_cache(async (username) => {
+export const getRecentUserActivity = cacheData(async (username) => {
     console.log('Fetching recent activity for', username);
     const response = await fetchPaginatedGitHubArray(`${GITHUB_API_URL}/users/${username}/events?per_page=100`, {
         context: `recent activity for ${username}`,
@@ -525,7 +533,7 @@ export const getRecentUserActivity = unstable_cache(async (username) => {
     return response;
 }, ['getRecentUserActivity-success-v3'], { revalidate: MINUTES_5 });
 
-export const getPublishedReleaseSummary = unstable_cache(async (username) => {
+export const getPublishedReleaseSummary = cacheData(async (username) => {
     let after = null;
     let releaseCount = 0;
     let repositoryCount = 0;
@@ -574,7 +582,7 @@ export const getPublishedReleaseSummary = unstable_cache(async (username) => {
     return { releaseCount, repositoryCount };
 }, ['getPublishedReleaseSummary-success-v3'], { revalidate: HOURS_6 });
 
-export const getTrafficPageViews = unstable_cache(async (username, reponame) => {
+export const getTrafficPageViews = cacheData(async (username, reponame) => {
     const response = await fetchGitHubResponse(`${GITHUB_API_URL}/repos/${username}/${reponame}/traffic/views`, {
         context: `traffic views for ${username}/${reponame}`,
     });
@@ -593,7 +601,7 @@ export const getTrafficPageViews = unstable_cache(async (username, reponame) => 
     return { sumUniques, todayUniques };
 }, ['getTrafficPageViews-success-v3'], { revalidate: HOURS_6 });
 
-export const getDependabotAlerts = unstable_cache(async (username, reponame) => {
+export const getDependabotAlerts = cacheData(async (username, reponame) => {
     const response = await fetchGitHubResponse(`${GITHUB_API_URL}/repos/${username}/${reponame}/dependabot/alerts`, {
         context: `Dependabot alerts for ${username}/${reponame}`,
     });
@@ -622,10 +630,10 @@ export const getDependabotAlerts = unstable_cache(async (username, reponame) => 
  * @returns Object with two booleans: isRouterPages and isRouterApp
  */
 export async function checkAppJsxExistence(repoOwner, repoName) {
-    return getCachedRepositoryRouterInfo(repoOwner, repoName);
+    return getRouterInfoFromRepository(await getRepositoryContentInfo(repoOwner, repoName));
 }
 
-const fetchAgentCountChunk = unstable_cache(async (repositories) => {
+const fetchAgentCountChunk = cacheData(async (repositories) => {
     const searchableRepositories = repositories.filter((project) => {
         const owner = project.owner?.login;
         return buildCopilotRepoSearchQuery(owner, project.name)
@@ -930,7 +938,7 @@ export async function getOwnerProjectSecondaryData() {
  * @param {string} reponame repository name
  * @returns {number} Number of merged Copilot PRs
  */
-export const getCopilotPRs = unstable_cache(async (username, reponame) => {
+export const getCopilotPRs = cacheData(async (username, reponame) => {
     const repo = `${username}/${reponame}`;
     console.log(`Fetching Copilot PRs for ${repo}`);
 
@@ -965,7 +973,7 @@ export const getCopilotPRs = unstable_cache(async (username, reponame) => {
  * @param {string} username GitHub username
  * @returns {number} Number of merged Copilot PRs across all repositories
  */
-export const getCopilotPRsAccountWide = unstable_cache(async (username) => {
+export const getCopilotPRsAccountWide = cacheData(async (username) => {
     console.log(`Fetching account-wide Copilot PRs for ${username}`);
 
     try {
@@ -999,7 +1007,7 @@ export const getCopilotPRsAccountWide = unstable_cache(async (username) => {
  * @param {string} username GitHub username
  * @returns {number} Number of commits authored by the user that were co-authored by Codex
  */
-export const getCodexCoauthoredCommitsAccountWide = unstable_cache(async (username) => {
+export const getCodexCoauthoredCommitsAccountWide = cacheData(async (username) => {
     console.log(`Fetching account-wide Codex co-authored commits for ${username}`);
 
     try {
@@ -1028,7 +1036,7 @@ export const getCodexCoauthoredCommitsAccountWide = unstable_cache(async (userna
  * @param {string} username GitHub username
  * @returns {number} Number of commits authored by the user that were co-authored by Claude
  */
-export const getClaudeCoauthoredCommitsAccountWide = unstable_cache(async (username) => {
+export const getClaudeCoauthoredCommitsAccountWide = cacheData(async (username) => {
     console.log(`Fetching account-wide Claude co-authored commits for ${username}`);
 
     try {
@@ -1057,7 +1065,7 @@ export const getClaudeCoauthoredCommitsAccountWide = unstable_cache(async (usern
  * @param {string} username GitHub username
  * @returns {number} Number of merged, codex-labeled PRs authored by the user
  */
-export const getCodexLabeledPRsAccountWide = unstable_cache(async (username) => {
+export const getCodexLabeledPRsAccountWide = cacheData(async (username) => {
     console.log(`Fetching account-wide codex-labeled PRs for ${username}`);
 
     try {
@@ -1091,7 +1099,7 @@ export const getCodexLabeledPRsAccountWide = unstable_cache(async (username) => 
  * @param {string} username GitHub username
  * @returns {number} Number of merged, claude-labeled PRs authored by the user
  */
-export const getClaudeLabeledPRsAccountWide = unstable_cache(async (username) => {
+export const getClaudeLabeledPRsAccountWide = cacheData(async (username) => {
     console.log(`Fetching account-wide claude-labeled PRs for ${username}`);
 
     try {

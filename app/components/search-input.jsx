@@ -53,7 +53,9 @@ const UserSearch = ({ user = "" }) => {
 				`/api/users/${encodeURIComponent(candidate)}`,
 				{ signal: controller.signal },
 			);
+            if (!response.ok && response.status !== 404) throw new Error("Profile lookup unavailable");
 			const userData = response.ok ? await response.json() : null;
+            if (activeSearch.current !== controller || controller.signal.aborted) return;
 			const found = Boolean(userData?.id);
 
 			setResolvedUsername(found ? candidate : "");
@@ -61,7 +63,7 @@ const UserSearch = ({ user = "" }) => {
 		} catch (error) {
 			if (!controller.signal.aborted) {
 				setResolvedUsername("");
-				setStatus("not-found");
+				setStatus("unavailable");
 			}
 		} finally {
 			if (activeSearch.current === controller) {
@@ -125,6 +127,8 @@ const UserSearch = ({ user = "" }) => {
 					<span className="text-red-500">
 						Enter a valid GitHub username.
 					</span>
+                ) : status === "unavailable" ? (
+                    <span className="text-zinc-400">GitHub profiles are temporarily unavailable. Try again shortly.</span>
 				) : status === "not-found" ? (
 					<span className="text-red-500">
 						User <strong>{username}</strong> not found.
