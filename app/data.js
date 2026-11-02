@@ -68,7 +68,7 @@ async function fetchGitHubGraphQL(query, variables, { context } = {}) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query, variables }),
     });
-    if (response.data?.errors?.length || !response.data?.data) {
+    if (response.data?.errors || !response.data?.data) {
         throw new GitHubRequestError(`GitHub GraphQL failed for ${context}.`);
     }
     return response.data.data;

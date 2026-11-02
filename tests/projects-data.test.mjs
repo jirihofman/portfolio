@@ -235,6 +235,15 @@ test('invalid profile JSON and malformed successful profiles are not cached', as
     }
 });
 
+test('malformed GraphQL errors cannot cache otherwise valid partial results', async () => {
+    const h = await harness(() => json({
+        data: { user: { pinnedItems: { nodes: [{ name: 'partial' }] } } },
+        errors: { message: 'Upstream failed' },
+    }));
+    await assert.rejects(h.run((data) => data.getPinnedRepos('octocat')));
+    assert.equal(h.entries.size, 0);
+});
+
 test('GraphQL HTTP-200 errors do not cache empty or partial pinned results', async () => {
     const h = await harness(() => json({
         data: { user: { pinnedItems: { nodes: [{ name: 'partial' }] } } },
@@ -292,6 +301,15 @@ test('genuine empty and absent optional data remain cacheable', async () => {
         assert.deepEqual(toPlain(await h.run(cacheCase.read)), cacheCase.expected);
         assert.equal(calls, 1);
     }
+});
+
+test('a failed later Vercel page does not cache partial projects', async () => {
+    const h = await harness((url) => {
+        if (new URL(url).searchParams.get('until') === 'next-page') return json({}, { status: 503 });
+        return json({ projects: [{ id: 'project-1', name: 'demo' }], pagination: { next: 'next-page' } });
+    }, { VC_TOKEN: 'test-vercel-token' });
+    await assert.rejects(h.run((data) => data.getVercelProjects()));
+    assert.equal(h.entries.size, 0);
 });
 
 test('a Vercel outage preserves previously cached project links', async () => {

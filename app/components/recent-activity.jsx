@@ -105,16 +105,10 @@ export const CopilotActivity = async ({ username }) => {
         getOptionalValue(() => getClaudeLabeledPRsAccountWide(username), null, 'getClaudeLabeledPRsAccountWide'),
     ]);
 
-    // Do not label an unavailable contribution source as a successful zero.
-    if ([copilotPRCount, codexCoauthoredCommitCount, codexLabeledPRCount,
-        claudeCoauthoredCommitCount, claudeLabeledPRCount].some((count) => count === null)) return null;
-
-    const codexCount = codexCoauthoredCommitCount + codexLabeledPRCount;
-    const claudeCount = claudeCoauthoredCommitCount + claudeLabeledPRCount;
-
-    if (copilotPRCount === 0 && codexCount === 0 && claudeCount === 0) {
-        return null;
-    }
+    const codexCount = (codexCoauthoredCommitCount ?? 0) + (codexLabeledPRCount ?? 0);
+    const claudeCount = (claudeCoauthoredCommitCount ?? 0) + (claudeLabeledPRCount ?? 0);
+    const codexIncomplete = codexCoauthoredCommitCount === null || codexLabeledPRCount === null;
+    const claudeIncomplete = claudeCoauthoredCommitCount === null || claudeLabeledPRCount === null;
 
     const agentParts = [];
 
@@ -129,7 +123,7 @@ export const CopilotActivity = async ({ username }) => {
     if (codexCount > 0) {
         agentParts.push(
             <span key="codex" className="inline-flex items-center gap-1 mx-1">
-                Codex <CodexIcon className="w-4 h-4 text-cyan-300" /> ({codexCount} contribution{codexCount === 1 ? '' : 's'})
+                Codex <CodexIcon className="w-4 h-4 text-cyan-300" /> ({codexIncomplete && 'at least '}{codexCount} contribution{codexCount === 1 ? '' : 's'})
             </span>
         );
     }
@@ -137,11 +131,12 @@ export const CopilotActivity = async ({ username }) => {
     if (claudeCount > 0) {
         agentParts.push(
             <span key="claude" className="inline-flex items-center gap-1 mx-1">
-                Claude <SiClaude className="w-4 h-4 text-orange-300" aria-label="Claude icon" /> ({claudeCount} contribution{claudeCount === 1 ? '' : 's'})
+                Claude <SiClaude className="w-4 h-4 text-orange-300" aria-label="Claude icon" /> ({claudeIncomplete && 'at least '}{claudeCount} contribution{claudeCount === 1 ? '' : 's'})
             </span>
         );
     }
 
+    if (agentParts.length === 0) return null;
     const agentSummary = joinWithAnd(agentParts);
 
     return (
