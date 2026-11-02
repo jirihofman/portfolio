@@ -318,7 +318,11 @@ export const getPinnedRepos = cacheData(async (username) => {
     `, { username }, {
         context: `pinned repositories for ${username}`,
     });
-    return pinned.user?.pinnedItems?.nodes?.map((node) => node?.name).filter(Boolean) ?? [];
+    const nodes = pinned.user?.pinnedItems?.nodes;
+    if (nodes === undefined) {
+        throw new GitHubRequestError(`GitHub returned incomplete pinned repositories for ${username}.`);
+    }
+    return nodes?.map((node) => node?.name).filter(Boolean) ?? [];
 }, ['getPinnedRepos-success-v3'], { revalidate: HOURS_12 });
 
 export const getUserOrganizations = cacheData(async (username) => {

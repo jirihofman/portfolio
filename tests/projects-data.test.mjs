@@ -244,6 +244,32 @@ test('malformed GraphQL errors cannot cache otherwise valid partial results', as
     assert.equal(h.entries.size, 0);
 });
 
+test('missing pinned nodes are rejected instead of cached as an empty list', async () => {
+    for (const payload of [{}, { user: null }, { user: { pinnedItems: {} } }]) {
+        const h = await harness(() => gql(payload));
+        await assert.rejects(h.run((data) => data.getPinnedRepos('octocat')), /incomplete pinned repositories/);
+        assert.equal(h.entries.size, 0);
+    }
+});
+
+test('an incomplete pinned response preserves previously cached pins', async () => {
+    let incomplete = false;
+    const h = await harness(() => gql({ user: { pinnedItems: incomplete ? {} : { nodes: [{ name: 'demo' }] } } }));
+    const initial = toPlain(await h.run((data) => data.getPinnedRepos('octocat')));
+    const entry = [...h.entries.values()][0];
+    entry.isStale = true;
+    incomplete = true;
+    const previousError = console.error;
+    console.error = () => {};
+    try {
+        assert.deepEqual(toPlain(await h.run((data) => data.getPinnedRepos('octocat'))), initial);
+    } finally {
+        console.error = previousError;
+    }
+    assert.equal([...h.entries.values()][0], entry);
+    assert.equal(entry.isStale, true);
+});
+
 test('GraphQL HTTP-200 errors do not cache empty or partial pinned results', async () => {
     const h = await harness(() => json({
         data: { user: { pinnedItems: { nodes: [{ name: 'partial' }] } } },
@@ -270,6 +296,11 @@ test('a failure on a later release-summary page cannot cache a partial total', a
 
 test('genuine empty and absent optional data remain cacheable', async () => {
     const cases = [
+        {
+            read: (data) => data.getPinnedRepos('octocat'),
+            response: () => gql({ user: { pinnedItems: { nodes: null } } }),
+            expected: [],
+        },
         {
             read: (data) => data.getPinnedRepos('octocat'),
             response: () => gql({ user: { pinnedItems: { nodes: [] } } }),
