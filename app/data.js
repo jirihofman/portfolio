@@ -86,35 +86,39 @@ async function fetchGitHubGraphQL(query, variables, { context } = {}) {
     return response.data.data;
 }
 
-function hasNextPage(linkHeader) {
-    return Boolean(linkHeader?.split(',').some((link) => link.includes('rel="next"')));
+function getNextPageUrl(linkHeader, currentUrl) {
+    const nextLink = linkHeader?.split(',').find((link) => /rel="next"/.test(link));
+    if (!nextLink) return null;
+    const target = nextLink.match(/<([^>]+)>/)?.[1];
+    if (!target) throw new GitHubRequestError('GitHub returned an invalid pagination link.');
+    const nextUrl = new URL(target, currentUrl);
+    const current = new URL(currentUrl);
+    // GitHub's repository list links can switch from a login to its numeric user ID.
+    // Subsequent pages must keep that canonical path; other endpoints cannot switch.
+    const isCanonicalUserRepos = /^\/users\/[^/]+\/repos$/.test(current.pathname)
+        && /^\/user\/[1-9]\d*\/repos$/.test(nextUrl.pathname);
+    // Never forward authorization to another origin or a URL with embedded credentials.
+    if (nextUrl.origin !== current.origin || (nextUrl.pathname !== current.pathname && !isCanonicalUserRepos)
+        || nextUrl.username || nextUrl.password) {
+        throw new GitHubRequestError('GitHub returned an unexpected pagination target.');
+    }
+    return nextUrl.href;
 }
 
 async function fetchPaginatedGitHubArray(initialUrl, { context } = {}) {
     const items = [];
-    let page = 1;
-    let shouldContinue = true;
-
-    while (shouldContinue) {
-        const url = new URL(initialUrl);
-
-        if (page > 1) {
-            url.searchParams.set('page', page.toString());
-        }
-
-        const response = await fetchGitHubResponse(url.toString(), {
-            context: `${context} (page ${page})`,
-            });
-
+    const seen = new Set();
+    let url = initialUrl;
+    while (url) {
+        if (seen.has(url)) throw new GitHubRequestError('GitHub returned a repeated pagination link.');
+        seen.add(url);
+        const response = await fetchGitHubResponse(url, { context });
         if (!Array.isArray(response.data)) {
-            throw new GitHubRequestError(`GitHub API returned an unexpected payload for ${context} on page ${page}.`);
+            throw new GitHubRequestError(`GitHub API returned an unexpected payload for ${context}.`);
         }
-
         items.push(...response.data);
-        shouldContinue = hasNextPage(response.headers.get('link'));
-        page++;
+        url = getNextPageUrl(response.headers.get('link'), url);
     }
-
     return items;
 }
 
@@ -603,16 +607,12 @@ export const getTrafficPageViews = cacheData(async (username, reponame) => {
 }, ['getTrafficPageViews-success-v3'], { revalidate: HOURS_6 });
 
 export const getDependabotAlerts = cacheData(async (username, reponame) => {
-    const response = await fetchGitHubResponse(`${GITHUB_API_URL}/repos/${username}/${reponame}/dependabot/alerts`, {
-        context: `Dependabot alerts for ${username}/${reponame}`,
-    });
+    const alerts = await fetchPaginatedGitHubArray(
+        `${GITHUB_API_URL}/repos/${username}/${reponame}/dependabot/alerts?state=open&per_page=100`,
+        { context: `Dependabot alerts for ${username}/${reponame}` },
+    );
 
-    if (!Array.isArray(response.data)) {
-        throw new GitHubRequestError('GitHub returned invalid Dependabot alerts.');
-    }
-
-    // If dependabot is not enabled, the response will be an object, not an array.
-    const openAlertsBySeverity = response.data.reduce((acc, alert) => {
+    const openAlertsBySeverity = alerts.reduce((acc, alert) => {
         if (alert.state === 'open') {
             acc[alert.security_advisory.severity] = acc[alert.security_advisory.severity] ? acc[alert.security_advisory.severity] + 1 : 1;
         }
@@ -620,7 +620,7 @@ export const getDependabotAlerts = cacheData(async (username, reponame) => {
     }, {});
 
     return openAlertsBySeverity;
-}, ['getDependabotAlerts-success-v3'], { revalidate: HOURS_12 });
+}, ['getDependabotAlerts-complete-v4'], { revalidate: HOURS_12 });
 
 /**
  * Determines if a repository is using Next.js App Router or legacy pages/_app.jsx. Or both.
