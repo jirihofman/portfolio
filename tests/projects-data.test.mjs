@@ -459,8 +459,16 @@ test('a failed later Dependabot page cannot cache a partial alert total', async 
     assert.equal(h.entries.size, 0);
 });
 
-test('unexpected pagination hosts and repeated cursors are rejected without caching', async () => {
-    for (const target of ['https://example.test/stolen', 'https://api.github.com/users/octocat/repos?per_page=100']) {
+test('unexpected pagination targets and repeated cursors are rejected without caching', async () => {
+    for (const target of [
+        'https://example.test/stolen',
+        'https://api.github.com/users/octocat/repos?per_page=100',
+        'http://api.github.com/user/1/repos?page=2',
+        'https://user:password@api.github.com/user/1/repos?page=2',
+        'https://api.github.com/user/1/events?page=2',
+        'https://api.github.com/user/not-a-number/repos?page=2',
+        'https://api.github.com/users/another-user/repos?page=2',
+    ]) {
         let calls = 0;
         const h = await harness(() => {
             calls++;
@@ -470,4 +478,37 @@ test('unexpected pagination hosts and repeated cursors are rejected without cach
         assert.equal(calls, 1);
         assert.equal(h.entries.size, 0);
     }
+});
+
+test('repository pagination follows numeric-user aliases and keeps the canonical path', async () => {
+    const urls = [];
+    const h = await harness((url) => {
+        urls.push(url);
+        const page = Number(new URL(url).searchParams.get('page') || 1);
+        const count = page === 3 ? 1 : 100;
+        const repositories = Array.from({ length: count }, (_, index) => ({ ...repo, name: `repo-${(page - 1) * 100 + index}` }));
+        return json(repositories, page < 3 ? {
+            headers: { link: `<https://api.github.com/user/583231/repos?per_page=100&page=${page + 1}>; rel="next"` },
+        } : undefined);
+    });
+    const repositories = await h.run((data) => data.getRepos('octocat'));
+    assert.equal(repositories.length, 201);
+    assert.deepEqual(urls, [
+        'https://api.github.com/users/octocat/repos?per_page=100',
+        'https://api.github.com/user/583231/repos?per_page=100&page=2',
+        'https://api.github.com/user/583231/repos?per_page=100&page=3',
+    ]);
+    await h.run((data) => data.getRepos('octocat'));
+    assert.equal(urls.length, 3);
+});
+
+test('canonical user pagination cannot switch to a different numeric user', async () => {
+    let calls = 0;
+    const h = await harness(() => {
+        const userId = ++calls === 1 ? '583231' : '1';
+        return json([repo], { headers: { link: `<https://api.github.com/user/${userId}/repos?page=2>; rel="next"` } });
+    });
+    await assert.rejects(h.run((data) => data.getRepos('octocat')), /unexpected pagination target/);
+    assert.equal(calls, 2);
+    assert.equal(h.entries.size, 0);
 });

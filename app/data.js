@@ -93,8 +93,12 @@ function getNextPageUrl(linkHeader, currentUrl) {
     if (!target) throw new GitHubRequestError('GitHub returned an invalid pagination link.');
     const nextUrl = new URL(target, currentUrl);
     const current = new URL(currentUrl);
-    // Never forward the authorization header outside the requested GitHub endpoint.
-    if (nextUrl.origin !== current.origin || nextUrl.pathname !== current.pathname
+    // GitHub's repository list links can switch from a login to its numeric user ID.
+    // Subsequent pages must keep that canonical path; other endpoints cannot switch.
+    const isCanonicalUserRepos = /^\/users\/[^/]+\/repos$/.test(current.pathname)
+        && /^\/user\/[1-9]\d*\/repos$/.test(nextUrl.pathname);
+    // Never forward authorization to another origin or a URL with embedded credentials.
+    if (nextUrl.origin !== current.origin || (nextUrl.pathname !== current.pathname && !isCanonicalUserRepos)
         || nextUrl.username || nextUrl.password) {
         throw new GitHubRequestError('GitHub returned an unexpected pagination target.');
     }
