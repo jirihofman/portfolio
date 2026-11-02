@@ -330,3 +330,30 @@ test('a Vercel outage preserves previously cached project links', async () => {
     }
     assert.equal([...h.entries.values()][0], entry);
 });
+
+test('concurrent case variants share one upstream user load and one cache entry', async () => {
+    let calls = 0;
+    const h = await harness(async (url) => {
+        calls++;
+        assert.equal(new URL(url).pathname, '/users/octocat');
+        return json({ id: 1, login: 'octocat' });
+    });
+    const users = await h.run((data) => Promise.all([
+        data.getUser('Octocat'), data.getUser('octocat'), data.getUser('OCTOCAT'),
+    ]));
+    assert.ok(users.every((user) => user.id === 1));
+    assert.equal(calls, 1);
+    assert.equal(h.entries.size, 1);
+    await h.run((data) => data.getUser('Octocat'));
+    assert.equal(calls, 1);
+});
+
+test('concurrent framework lookups reuse one release query', async () => {
+    let calls = 0;
+    const h = await harness(() => {
+        calls++;
+        return json({ data: { repository: { latestRelease: { tagName: 'v1.0.0' } } } });
+    });
+    await h.run((data) => Promise.all(Array.from({ length: 5 }, () => data.getAstroLatestRelease())));
+    assert.equal(calls, 1);
+});
