@@ -512,3 +512,18 @@ test('canonical user pagination cannot switch to a different numeric user', asyn
     assert.equal(calls, 2);
     assert.equal(h.entries.size, 0);
 });
+
+test('expired authenticated profile data revalidates with ETag and keeps its body after 304', async () => {
+    let calls = 0;
+    const h = await harness((url, options) => {
+        calls++;
+        if (calls === 1) return json({ id: 1, login: 'octocat' }, { headers: { etag: '"profile-v1"' } });
+        assert.equal(new Headers(options.headers).get('if-none-match'), '"profile-v1"');
+        return new Response(null, { status: 304, headers: { etag: '"profile-v1"' } });
+    });
+    await h.run((data) => data.getUser('octocat'));
+    [...h.entries.values()][0].isStale = true;
+    await h.run((data) => data.getUser('octocat'));
+    assert.equal((await h.run((data) => data.getUser('octocat'))).id, 1);
+    assert.equal(calls, 2);
+});

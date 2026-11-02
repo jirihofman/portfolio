@@ -5,6 +5,7 @@ import data from '../data.json';
 import { GitHubRequestError } from '../lib/github-errors.mjs';
 import { createHash } from 'node:crypto';
 import { singleFlight, normalizeGitHubArguments } from '../lib/single-flight.mjs';
+import { conditionalGitHubRequest } from '../lib/github-conditional-request.mjs';
 import { scheduleGitHubRequest, admitGitHubLookup } from '../lib/github-request-scheduler.mjs';
 
 const revalidate = 60;
@@ -58,7 +59,9 @@ async function fetchGitHubResponse(url, { context, method = 'GET', body, headers
         throw new GitHubRequestError('GitHub authentication is required for this data.', 401);
     }
     const options = { method, body, headers: getGitHubHeaders(headers), cache: 'no-store' };
-    const res = await scheduleGitHubRequest(url, options, (signal) => fetch(url, { ...options, signal }));
+    const res = await conditionalGitHubRequest(url, options, (target, init) =>
+        scheduleGitHubRequest(target, init, (signal) => fetch(target, { ...init, signal })),
+    );
     if (!res.ok) {
         throw new GitHubRequestError(`GitHub API returned ${res.status} for ${context}.`, res.status);
     }
