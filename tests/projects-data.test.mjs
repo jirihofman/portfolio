@@ -13,14 +13,14 @@ const source = await readFile(appDataUrl, 'utf8');
 const config = JSON.parse(await readFile(new URL('../data.json', import.meta.url), 'utf8'));
 let harnessId = 0;
 
-async function harness(fetch, env = {}) {
+async function harness(fetch, env = {}, moduleSource = source) {
     const entries = new Map();
     const context = vm.createContext({
         fetch, Headers, URL, AbortSignal, structuredClone,
         process: { env: { GH_TOKEN: `cache-test-token-${++harnessId}`, ...env } },
         console: { log() {}, error() {} },
     });
-    const module = new vm.SourceTextModule(source, { context });
+    const module = new vm.SourceTextModule(moduleSource, { context });
     await module.link(async (specifier) => {
         const exports = specifier === 'next/cache'
             ? { unstable_cache }
@@ -244,6 +244,32 @@ test('malformed GraphQL errors cannot cache otherwise valid partial results', as
     assert.equal(h.entries.size, 0);
 });
 
+test('missing pinned nodes are rejected instead of cached as an empty list', async () => {
+    for (const payload of [{}, { user: null }, { user: { pinnedItems: {} } }]) {
+        const h = await harness(() => gql(payload));
+        await assert.rejects(h.run((data) => data.getPinnedRepos('octocat')), /incomplete pinned repositories/);
+        assert.equal(h.entries.size, 0);
+    }
+});
+
+test('an incomplete pinned response preserves previously cached pins', async () => {
+    let incomplete = false;
+    const h = await harness(() => gql({ user: { pinnedItems: incomplete ? {} : { nodes: [{ name: 'demo' }] } } }));
+    const initial = toPlain(await h.run((data) => data.getPinnedRepos('octocat')));
+    const entry = [...h.entries.values()][0];
+    entry.isStale = true;
+    incomplete = true;
+    const previousError = console.error;
+    console.error = () => {};
+    try {
+        assert.deepEqual(toPlain(await h.run((data) => data.getPinnedRepos('octocat'))), initial);
+    } finally {
+        console.error = previousError;
+    }
+    assert.equal([...h.entries.values()][0], entry);
+    assert.equal(entry.isStale, true);
+});
+
 test('GraphQL HTTP-200 errors do not cache empty or partial pinned results', async () => {
     const h = await harness(() => json({
         data: { user: { pinnedItems: { nodes: [{ name: 'partial' }] } } },
@@ -270,6 +296,11 @@ test('a failure on a later release-summary page cannot cache a partial total', a
 
 test('genuine empty and absent optional data remain cacheable', async () => {
     const cases = [
+        {
+            read: (data) => data.getPinnedRepos('octocat'),
+            response: () => gql({ user: { pinnedItems: { nodes: null } } }),
+            expected: [],
+        },
         {
             read: (data) => data.getPinnedRepos('octocat'),
             response: () => gql({ user: { pinnedItems: { nodes: [] } } }),
@@ -389,7 +420,7 @@ test('traffic starts while agent counts are still pending', async () => {
     } finally {
         releaseBatch();
     }
-    assert.equal((await work)['octocat/demo'].ownerMetrics.copilotPRCount, 0);
+    assert.equal((await work).repositories['octocat/demo'].ownerMetrics.copilotPRCount, 0);
 });
 
 test('batch cache survives changed display order and repository metadata', async () => {
@@ -526,4 +557,45 @@ test('expired authenticated profile data revalidates with ETag and keeps its bod
     await h.run((data) => data.getUser('octocat'));
     assert.equal((await h.run((data) => data.getUser('octocat'))).id, 1);
     assert.equal(calls, 2);
+});
+
+test('secondary snapshots distinguish transient failures from expected inaccessible metrics', async () => {
+    for (const status of [403, 429, 502]) {
+        const h = await harness((url, options) => {
+            if (url.includes('/traffic/views')) return json({ message: status === 403 ? 'Resource not accessible' : 'Temporary failure' }, { status });
+            return projectResponse(url, options, [repo], batchResult);
+        }, { GITHUB_USERNAME: 'octocat' });
+        const snapshot = await h.run((data) => data.getOwnerProjectSecondaryData());
+        assert.equal(snapshot.complete, status === 403);
+        assert.equal(snapshot.repositories['octocat/demo'].ownerMetrics.views, null);
+    }
+});
+
+test('Vercel permission failures allow complete snapshots while transient failures do not', async () => {
+    for (const status of [401, 403, 429, 502]) {
+        const h = await harness((url, options) => {
+            if (new URL(url).hostname === 'api.vercel.com') return json({ error: { code: 'unavailable' } }, { status });
+            return projectResponse(url, options, [repo], (body) => json({ data: Object.fromEntries(
+                Object.keys(body.variables).map((key) => [key, { issueCount: 4 }]),
+            ) }));
+        }, { GITHUB_USERNAME: 'octocat', VC_TOKEN: 'test-vercel-token' });
+        await assert.rejects(h.run((data) => data.getVercelProjects()), (error) => error.status === status);
+        const snapshot = await h.run((data) => data.getOwnerProjectSecondaryData());
+        assert.equal(snapshot.complete, status === 401 || status === 403);
+        assert.equal(snapshot.repositories['octocat/demo'].vercel, null);
+        assert.equal(snapshot.repositories['octocat/demo'].ownerMetrics.copilotPRCount, 4);
+    }
+});
+
+test('changing loader implementation invalidates the persistent cache despite single-flight wrappers', async () => {
+    const env = { GH_TOKEN: 'same-credential-for-loader-version-test' };
+    const first = await harness(() => json({ id: 1 }), env);
+    await first.run((data) => data.getUser('octocat'));
+    const updatedSource = source.replace("console.log('Fetching user data for', username);", "console.log('Loading updated user profile', username);");
+    assert.notEqual(updatedSource, source);
+    let loads = 0;
+    const updated = await harness(() => { loads++; return json({ id: 2 }); }, env, updatedSource);
+    for (const [key, entry] of first.entries) updated.entries.set(key, entry);
+    assert.equal((await updated.run((data) => data.getUser('octocat'))).id, 2);
+    assert.equal(loads, 1);
 });

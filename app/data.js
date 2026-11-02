@@ -28,7 +28,8 @@ function cacheData(load, keys, options) {
     const scope = createHash('sha256').update(JSON.stringify([
         process.env.GH_TOKEN || '', process.env.VC_TOKEN || '',
     ])).digest('hex');
-    const cached = unstable_cache(singleFlight(load), ['github-data-v4', scope, ...keys], options);
+    const implementation = createHash('sha256').update(load.toString()).digest('hex');
+    const cached = unstable_cache(singleFlight(load), ['github-data-v4', scope, implementation, ...keys], options);
     return singleFlight(cached, normalizeGitHubArguments);
 }
 
@@ -159,11 +160,12 @@ function chunkItems(items, size) {
     return chunks;
 }
 
-export async function getOptionalValue(factory, fallback, context) {
+export async function getOptionalValue(factory, fallback, context, onError = () => {}) {
     try {
         return await factory();
     } catch (error) {
-        console.error(`Failed to fetch optional data for ${context}:`, error);
+        onError(error);
+        if (error.status !== 401) console.error(`Failed to fetch optional data for ${context}:`, error);
         return cloneFallbackValue(fallback);
     }
 }
@@ -316,7 +318,11 @@ export const getPinnedRepos = cacheData(async (username) => {
     `, { username }, {
         context: `pinned repositories for ${username}`,
     });
-    return pinned.user?.pinnedItems?.nodes?.map((node) => node?.name).filter(Boolean) ?? [];
+    const nodes = pinned.user?.pinnedItems?.nodes;
+    if (nodes === undefined) {
+        throw new GitHubRequestError(`GitHub returned incomplete pinned repositories for ${username}.`);
+    }
+    return nodes?.map((node) => node?.name).filter(Boolean) ?? [];
 }, ['getPinnedRepos-success-v3'], { revalidate: HOURS_12 });
 
 export const getUserOrganizations = cacheData(async (username) => {
@@ -361,7 +367,7 @@ export const getVercelProjects = cacheData(async () => {
         });
 
         if (!res.ok) {
-            throw new Error(`Vercel API returned ${res.status}.`);
+            throw Object.assign(new Error(`Vercel API returned ${res.status}.`), { status: res.status });
         }
 
         const data = await res.json();
@@ -698,12 +704,12 @@ const fetchAgentCountChunk = cacheData(async (repositoryKeys) => {
     }, { copilot: {}, codex: {}, claude: {} });
 }, ['agent-count-chunk-success-v1'], { revalidate: HOURS_12 });
 
-async function getAgentCounts(repositories) {
+async function getAgentCounts(repositories, optional = getOptionalValue) {
     // Display order and changing repository metadata must not change query identity.
     const keys = [...new Set(repositories.map((project) => getRepositoryKey(project).toLowerCase()))].sort();
     const chunks = await mapWithConcurrency(
         chunkItems(keys, AGENT_GRAPHQL_BATCH_SIZE), AGENT_BATCH_CONCURRENCY,
-        (chunk, index) => getOptionalValue(
+        (chunk, index) => optional(
             () => fetchAgentCountChunk(chunk),
             { copilot: {}, codex: {}, claude: {} },
             `agent count batch ${index + 1}`,
@@ -747,14 +753,14 @@ function getRepositoryUiLibraries(packageJson) {
     return libraries;
 }
 
-async function getRepositoryVercelDetails(username, reponame, nextjsReleasePromise) {
+async function getRepositoryVercelDetails(username, reponame, nextjsReleasePromise, optional) {
     try {
         const [repository, nextjsLatestRelease] = await Promise.all([
             getRepositoryContentInfo(username, reponame), nextjsReleasePromise,
         ]);
         const packageJson = parseRepositoryPackageJson(repository, username, reponame);
         const routerInfo = getRouterInfoFromRepository(repository);
-        const repositoryFrameworks = await getFrameworkDetails(packageJson);
+        const repositoryFrameworks = await getFrameworkDetails(packageJson, optional);
         const nextjsVersion = getPackageDependencyVersion(packageJson, 'next');
         const astroVersion = getPackageDependencyVersion(packageJson, 'astro');
         const isNext16 = nextjsVersion && compareVersions(nextjsVersion, '16.0.0') >= 0;
@@ -779,21 +785,20 @@ async function getRepositoryVercelDetails(username, reponame, nextjsReleasePromi
             uiLibraries: getRepositoryUiLibraries(packageJson),
         };
     } catch (error) {
-        console.error(`Failed to enrich Vercel data for ${username}/${reponame}:`, error);
-        return createEmptyVercelDetails();
+        throw error;
     }
 }
 
-async function enrichProjectsForCards(projects) {
+async function enrichProjectsForCards(projects, optional = getOptionalValue) {
     const ownerProjects = projects.filter((project) => isOwnedRepository(project, PORTFOLIO_OWNER_USERNAME));
     const hasVercelProjects = projects.some((project) => project.vercel);
-    const countsPromise = getOptionalValue(
-        () => getAgentCounts(ownerProjects),
+    const countsPromise = optional(
+        () => getAgentCounts(ownerProjects, optional),
         { copilot: {}, codex: {}, claude: {} },
         'project agent counts',
     );
     const nextjsReleasePromise = hasVercelProjects
-        ? getOptionalValue(() => getNextjsLatestRelease(), {}, 'latest Next.js release')
+        ? optional(() => getNextjsLatestRelease(), {}, 'latest Next.js release')
         : Promise.resolve({});
 
     // Independent reads begin immediately; the shared request scheduler bounds I/O.
@@ -802,14 +807,14 @@ async function enrichProjectsForCards(projects) {
         const isOwnerRepo = isOwnedRepository(project, PORTFOLIO_OWNER_USERNAME);
         const [views, openAlertsBySeverity, vercelDetails] = await Promise.all([
             isOwnerRepo && repoOwner
-                ? getOptionalValue(() => getTrafficPageViews(repoOwner, project.name), null, `traffic for ${repoOwner}/${project.name}`)
+                ? optional(() => getTrafficPageViews(repoOwner, project.name), null, `traffic for ${repoOwner}/${project.name}`)
                 : Promise.resolve(null),
             isOwnerRepo && repoOwner
-                ? getOptionalValue(() => getDependabotAlerts(repoOwner, project.name), null, `Dependabot alerts for ${repoOwner}/${project.name}`)
+                ? optional(() => getDependabotAlerts(repoOwner, project.name), null, `Dependabot alerts for ${repoOwner}/${project.name}`)
                 : Promise.resolve(null),
             project.vercel && repoOwner
-                ? getOptionalValue(
-                    () => getRepositoryVercelDetails(repoOwner, project.name, nextjsReleasePromise),
+                ? optional(
+                    () => getRepositoryVercelDetails(repoOwner, project.name, nextjsReleasePromise, optional),
                     createEmptyVercelDetails(),
                     `Vercel details for ${repoOwner}/${project.name}`,
                 )
@@ -901,10 +906,10 @@ function getLinkedGitHubRepositoryKey(vercelProject) {
     return `${owner}/${repository}`.toLowerCase();
 }
 
-export async function getProjectsPageData(username) {
+export async function getProjectsPageData(username, optional = getOptionalValue) {
     const [repositories, pinnedNames] = await Promise.all([
         getRepos(username),
-        getOptionalValue(() => getPinnedRepos(username), [], `pinned repositories for ${username}`),
+        optional(() => getPinnedRepos(username), [], `pinned repositories for ${username}`),
     ]);
     const { heroes, sorted } = selectVisibleProjects(repositories, pinnedNames);
 
@@ -916,9 +921,15 @@ export async function getProjectsPageData(username) {
 }
 
 export async function getOwnerProjectSecondaryData() {
+    let complete = true;
+    const optional = (factory, fallback, context) => getOptionalValue(factory, fallback, context, (error) => {
+        // Auth-disabled or explicitly inaccessible optional data is an expected absence.
+        // The scheduler turns actual throttling into 429 before this point.
+        if (![401, 403, 404].includes(error.status)) complete = false;
+    });
     const [{ heroes, sorted }, vercelProjects] = await Promise.all([
-        getProjectsPageData(PORTFOLIO_OWNER_USERNAME),
-        getOptionalValue(() => getVercelProjects(), { projects: [] }, 'Vercel projects'),
+        getProjectsPageData(PORTFOLIO_OWNER_USERNAME, optional),
+        optional(() => getVercelProjects(), { projects: [] }, 'Vercel projects'),
     ]);
     const projects = [...heroes, ...sorted].filter((project) =>
         isOwnedRepository(project, PORTFOLIO_OWNER_USERNAME)
@@ -937,9 +948,9 @@ export async function getOwnerProjectSecondaryData() {
         ...project,
         vercel: vercelProjectsByRepository.get(getRepositoryKey(project).toLowerCase()),
     }));
-    const enrichedProjects = await enrichProjectsForCards(projectsWithVercel);
+    const enrichedProjects = await enrichProjectsForCards(projectsWithVercel, optional);
 
-    return Object.fromEntries(enrichedProjects.map((project) => [
+    const repositories = Object.fromEntries(enrichedProjects.map((project) => [
         getRepositoryKey(project),
         {
             ownerMetrics: {
@@ -952,6 +963,7 @@ export async function getOwnerProjectSecondaryData() {
             vercel: project.vercel || null,
         },
     ]));
+    return { repositories, complete };
 }
 
 /**
@@ -1240,36 +1252,20 @@ function compareVersions(version1, version2) {
     return 0;
 }
 
-async function getFrameworkDetails(packageJson) {
-    const detectedFrameworks = detectFrameworks(packageJson);
-
-    const frameworksWithLatest = await Promise.all(
-        detectedFrameworks.map(async (framework) => {
-            const { getLatestRelease, ...frameworkInfo } = framework;
-
-            try {
-                const latestRelease = await getLatestRelease();
-                const hasUpgrade = framework.version && latestRelease.tagName &&
-                                   compareVersions(framework.version, latestRelease.tagName) < 0;
-
-                return {
-                    ...frameworkInfo,
-                    latestVersion: latestRelease.tagName,
-                    hasUpgrade,
-                    latestUpdatedAt: latestRelease.updatedAt
-                };
-            } catch (error) {
-                console.error(`Error getting latest release for ${framework.name}:`, error);
-                return {
-                    ...frameworkInfo,
-                    latestVersion: null,
-                    hasUpgrade: false
-                };
-            }
-        })
-    );
-
-    return frameworksWithLatest;
+async function getFrameworkDetails(packageJson, optional = getOptionalValue) {
+    return Promise.all(detectFrameworks(packageJson).map((framework) => {
+        const { getLatestRelease, ...frameworkInfo } = framework;
+        return optional(async () => {
+            const latestRelease = await getLatestRelease();
+            return {
+                ...frameworkInfo,
+                latestVersion: latestRelease.tagName,
+                hasUpgrade: Boolean(framework.version && latestRelease.tagName
+                    && compareVersions(framework.version, latestRelease.tagName) < 0),
+                latestUpdatedAt: latestRelease.updatedAt,
+            };
+        }, { ...frameworkInfo, latestVersion: null, hasUpgrade: false }, `latest release for ${framework.name}`);
+    }));
 }
 
 /**
