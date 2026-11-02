@@ -1,3 +1,5 @@
+import { scheduleGitHubRequest } from "../../../lib/github-request-scheduler.mjs";
+
 const EXTERNAL_FETCH_TIMEOUT_MS = 10_000;
 const GITHUB_USERNAME_PATTERN =
 	/^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/;
@@ -19,10 +21,9 @@ const users = async (req, res) => {
 	}
 
 	try {
-		const response = await fetch(`https://api.github.com/users/${encodeURIComponent(username)}`, {
-			headers,
-			signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
-		});
+		const url = `https://api.github.com/users/${encodeURIComponent(username)}`;
+		const options = { headers, signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS) };
+		const response = await scheduleGitHubRequest(url, options, (signal) => fetch(url, { ...options, signal }));
 
 		if (!response.ok) {
 			return res.status(response.status).json({ error: "GitHub user not found." });
@@ -37,7 +38,9 @@ const users = async (req, res) => {
 		return res.status(200).json({ id: data.id });
 	} catch (error) {
 		console.error(`GitHub user API request failed for ${username}:`, error);
-		const status = error?.name === 'TimeoutError' ? 504 : 502;
+		const status = error?.status === 429 || error?.status === 503 ? error.status : error?.name === 'TimeoutError' ? 504 : 502;
+		res.setHeader('Cache-Control', 'no-store');
+		if (error?.retryAfter) res.setHeader('Retry-After', String(error.retryAfter));
 
 		return res.status(status).json({ error: 'Unable to fetch GitHub user data.' });
 	}

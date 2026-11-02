@@ -3,6 +3,7 @@
 import { unstable_cache } from 'next/cache';
 import data from '../data.json';
 import { GitHubRequestError } from '../lib/github-errors.mjs';
+import { scheduleGitHubRequest } from '../lib/github-request-scheduler.mjs';
 
 const revalidate = 60;
 const MINUTES_5 = 60 * 5;
@@ -40,13 +41,11 @@ function getGitHubHeaders(extraHeaders = {}) {
 
 // Fail inside the persistent cache; callers apply optional display fallbacks outside it.
 async function fetchGitHubResponse(url, { context, method = 'GET', body, headers } = {}) {
-    const res = await fetch(url, {
-        method,
-        body,
-        headers: getGitHubHeaders(headers),
-        cache: 'no-store',
-        signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
-    });
+    if (!process.env.GH_TOKEN && (url === GITHUB_GRAPHQL_URL || /\/(traffic\/views|dependabot\/alerts)(?:\?|$)/.test(url))) {
+        throw new GitHubRequestError('GitHub authentication is required for this data.', 401);
+    }
+    const options = { method, body, headers: getGitHubHeaders(headers), cache: 'no-store' };
+    const res = await scheduleGitHubRequest(url, options, (signal) => fetch(url, { ...options, signal }));
     if (!res.ok) {
         throw new GitHubRequestError(`GitHub API returned ${res.status} for ${context}.`, res.status);
     }
