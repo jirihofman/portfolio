@@ -1,4 +1,5 @@
 import {
+    getOptionalValue,
     getRecentUserActivity,
     getPublishedReleaseSummary,
     getCopilotPRsAccountWide,
@@ -19,8 +20,8 @@ function joinWithAnd(items) {
 export const RecentActivity = async ({ username }) => {
 
     const [recentUserActivity, publishedReleaseSummary] = await Promise.all([
-        getRecentUserActivity(username),
-        getPublishedReleaseSummary(username),
+        getOptionalValue(() => getRecentUserActivity(username), [], 'recent activity'),
+        getOptionalValue(() => getPublishedReleaseSummary(username), null, 'release summary'),
     ]);
     const activitySummary = recentUserActivity.reduce((acc, activity) => {
 
@@ -84,9 +85,9 @@ export const RecentActivity = async ({ username }) => {
             <span className="text-sm">
                 {activitySummaryString && 'Recent public output: ' + activitySummaryString + '.'}
             </span>
-            <div className="text-sm">
+            {publishedReleaseSummary && <div className="text-sm">
                 Published {publishedReleaseSummary.releaseCount} GitHub release{publishedReleaseSummary.releaseCount === 1 ? '' : 's'} across {publishedReleaseSummary.repositoryCount} public repositor{publishedReleaseSummary.repositoryCount === 1 ? 'y' : 'ies'}.
-            </div>
+            </div>}
             {/* {JSON.stringify(recentUserActivity.map(a => a.payload?.review && Object.keys(a.payload?.review).join()), null, 4)} */}
             {/* {JSON.stringify(Object.keys(recentUserActivity[4]).join(), null, 4)} */}
             {/* {JSON.stringify(recentUserActivity.filter(a => a.type === 'PullRequestEvent')[2], null, 4)} */}
@@ -97,19 +98,17 @@ export const RecentActivity = async ({ username }) => {
 
 export const CopilotActivity = async ({ username }) => {
     const [copilotPRCount, codexCoauthoredCommitCount, codexLabeledPRCount, claudeCoauthoredCommitCount, claudeLabeledPRCount] = await Promise.all([
-        getCopilotPRsAccountWide(username),
-        getCodexCoauthoredCommitsAccountWide(username),
-        getCodexLabeledPRsAccountWide(username),
-        getClaudeCoauthoredCommitsAccountWide(username),
-        getClaudeLabeledPRsAccountWide(username),
+        getOptionalValue(() => getCopilotPRsAccountWide(username), null, 'getCopilotPRsAccountWide'),
+        getOptionalValue(() => getCodexCoauthoredCommitsAccountWide(username), null, 'getCodexCoauthoredCommitsAccountWide'),
+        getOptionalValue(() => getCodexLabeledPRsAccountWide(username), null, 'getCodexLabeledPRsAccountWide'),
+        getOptionalValue(() => getClaudeCoauthoredCommitsAccountWide(username), null, 'getClaudeCoauthoredCommitsAccountWide'),
+        getOptionalValue(() => getClaudeLabeledPRsAccountWide(username), null, 'getClaudeLabeledPRsAccountWide'),
     ]);
 
-    const codexCount = codexCoauthoredCommitCount + codexLabeledPRCount;
-    const claudeCount = claudeCoauthoredCommitCount + claudeLabeledPRCount;
-
-    if (copilotPRCount === 0 && codexCount === 0 && claudeCount === 0) {
-        return null;
-    }
+    const codexCount = (codexCoauthoredCommitCount ?? 0) + (codexLabeledPRCount ?? 0);
+    const claudeCount = (claudeCoauthoredCommitCount ?? 0) + (claudeLabeledPRCount ?? 0);
+    const codexIncomplete = codexCoauthoredCommitCount === null || codexLabeledPRCount === null;
+    const claudeIncomplete = claudeCoauthoredCommitCount === null || claudeLabeledPRCount === null;
 
     const agentParts = [];
 
@@ -124,7 +123,7 @@ export const CopilotActivity = async ({ username }) => {
     if (codexCount > 0) {
         agentParts.push(
             <span key="codex" className="inline-flex items-center gap-1 mx-1">
-                Codex <CodexIcon className="w-4 h-4 text-cyan-300" /> ({codexCount} contribution{codexCount === 1 ? '' : 's'})
+                Codex <CodexIcon className="w-4 h-4 text-cyan-300" /> ({codexIncomplete && 'at least '}{codexCount} contribution{codexCount === 1 ? '' : 's'})
             </span>
         );
     }
@@ -132,11 +131,12 @@ export const CopilotActivity = async ({ username }) => {
     if (claudeCount > 0) {
         agentParts.push(
             <span key="claude" className="inline-flex items-center gap-1 mx-1">
-                Claude <SiClaude className="w-4 h-4 text-orange-300" aria-label="Claude icon" /> ({claudeCount} contribution{claudeCount === 1 ? '' : 's'})
+                Claude <SiClaude className="w-4 h-4 text-orange-300" aria-label="Claude icon" /> ({claudeIncomplete && 'at least '}{claudeCount} contribution{claudeCount === 1 ? '' : 's'})
             </span>
         );
     }
 
+    if (agentParts.length === 0) return null;
     const agentSummary = joinWithAnd(agentParts);
 
     return (

@@ -8,19 +8,25 @@ import vm from 'node:vm';
 globalThis.AsyncLocalStorage = AsyncLocalStorage;
 const { unstable_cache } = await import('next/cache.js');
 const { workAsyncStorage } = await import('next/dist/server/app-render/work-async-storage.external.js');
-const source = await readFile(new URL('../app/data.js', import.meta.url), 'utf8');
+const appDataUrl = new URL('../app/data.js', import.meta.url);
+const source = await readFile(appDataUrl, 'utf8');
 const config = JSON.parse(await readFile(new URL('../data.json', import.meta.url), 'utf8'));
+let harnessId = 0;
 
-async function harness(fetch) {
+async function harness(fetch, env = {}) {
     const entries = new Map();
     const context = vm.createContext({
-        fetch, Headers, URL, AbortSignal, structuredClone, process: { env: {} },
+        fetch, Headers, URL, AbortSignal, structuredClone,
+        process: { env: { GH_TOKEN: `cache-test-token-${++harnessId}`, ...env } },
         console: { log() {}, error() {} },
     });
     const module = new vm.SourceTextModule(source, { context });
-    await module.link((specifier) => {
+    await module.link(async (specifier) => {
         const exports = specifier === 'next/cache'
-            ? { unstable_cache } : { default: config };
+            ? { unstable_cache }
+            : specifier === '../data.json'
+                ? { default: config }
+                : await import(new URL(specifier, appDataUrl));
         return new vm.SyntheticModule(Object.keys(exports), function () {
             for (const [name, value] of Object.entries(exports)) this.setExport(name, value);
         }, { context });
@@ -105,6 +111,9 @@ test('failed revalidation retains the successful list and later recovers', async
     }
     fail = false;
     repositories = [{ ...repo, name: 'updated' }];
+    // The request triggering revalidation may still receive the stale result.
+    // run() waits for the refresh; the next read must see the recovered data.
+    await h.run((data) => data.getRepos('octocat'));
     const recovered = await h.run((data) => data.getRepos('octocat'));
     assert.equal(recovered[0].name, 'updated');
     assert.equal([...h.entries.values()][0].isStale, false);
@@ -123,4 +132,201 @@ test('optional pinned-repository failure does not hide projects', async () => {
     });
     const result = await h.run((data) => data.getProjectsPageData('octocat'));
     assert.equal(result.sorted[0].name, 'demo');
+});
+
+const toPlain = (value) => JSON.parse(JSON.stringify(value));
+const gql = (data) => json({ data });
+
+const cacheCases = [
+    {
+        name: 'user profile',
+        read: (data) => data.getUser('octocat'),
+        success: () => json({ id: 1, login: 'octocat', name: 'Octocat' }),
+    },
+    {
+        name: 'pinned repositories',
+        read: (data) => data.getPinnedRepos('octocat'),
+        success: () => gql({ user: { pinnedItems: { nodes: [{ name: 'demo' }] } } }),
+    },
+    {
+        name: 'repository content',
+        read: (data) => data.getRepositoryPackageJson('octocat', 'demo'),
+        success: () => gql({ repository: { packageJson: { text: '{"name":"demo"}' } } }),
+    },
+    {
+        name: 'traffic',
+        read: (data) => data.getTrafficPageViews('octocat', 'demo'),
+        success: () => json({ uniques: 12, views: [] }),
+    },
+    {
+        name: 'Dependabot alerts',
+        read: (data) => data.getDependabotAlerts('octocat', 'demo'),
+        success: () => json([{ state: 'open', security_advisory: { severity: 'high' } }]),
+    },
+    {
+        name: 'Codex coauthored commits',
+        read: (data) => data.getCodexCoauthoredCommitsAccountWide('octocat'),
+        success: () => json({ total_count: 7 }),
+    },
+    {
+        name: 'Claude coauthored commits',
+        read: (data) => data.getClaudeCoauthoredCommitsAccountWide('octocat'),
+        success: () => json({ total_count: 4 }),
+    },
+];
+
+for (const cacheCase of cacheCases) {
+    test(`${cacheCase.name}: cold upstream failures do not create a fallback cache entry`, async () => {
+        const h = await harness(() => json({ message: 'Temporarily unavailable' }, { status: 502 }));
+        await assert.rejects(h.run(cacheCase.read));
+        assert.equal(h.entries.size, 0);
+    });
+
+    test(`${cacheCase.name}: failed refresh keeps the previous successful value`, async () => {
+        let fail = false;
+        const h = await harness(() => fail
+            ? json({ message: 'Rate limited' }, { status: 403 })
+            : cacheCase.success());
+        const initial = toPlain(await h.run(cacheCase.read));
+        const savedEntries = [...h.entries.entries()];
+        assert.ok(savedEntries.length > 0);
+        for (const [, entry] of savedEntries) entry.isStale = true;
+        fail = true;
+        const previousError = console.error;
+        console.error = () => {};
+        try {
+            assert.deepEqual(toPlain(await h.run(cacheCase.read)), initial);
+        } finally {
+            console.error = previousError;
+        }
+        for (const [key, entry] of savedEntries) {
+            assert.equal(h.entries.get(key), entry, 'failed refresh must not replace the cache entry');
+            assert.equal(entry.isStale, true);
+        }
+    });
+}
+
+test('only a genuine profile 404 is cached as a missing user', async () => {
+    let calls = 0;
+    const missing = await harness(() => {
+        calls++;
+        return json({ message: 'Not Found' }, { status: 404 });
+    });
+    assert.equal(await missing.run((data) => data.getUser('missing-user')), null);
+    assert.equal(await missing.run((data) => data.getUser('missing-user')), null);
+    assert.equal(calls, 1);
+    assert.equal(missing.entries.size, 1);
+
+    for (const status of [403, 429, 502]) {
+        const unavailable = await harness(() => json({ message: 'Unavailable' }, { status }));
+        await assert.rejects(unavailable.run((data) => data.getUser('octocat')));
+        assert.equal(unavailable.entries.size, 0);
+    }
+});
+
+test('invalid profile JSON and malformed successful profiles are not cached', async () => {
+    for (const response of [
+        () => new Response('{', { headers: { 'content-type': 'application/json' } }),
+        () => json({ message: 'not a profile' }),
+    ]) {
+        const h = await harness(response);
+        await assert.rejects(h.run((data) => data.getUser('octocat')));
+        assert.equal(h.entries.size, 0);
+    }
+});
+
+test('malformed GraphQL errors cannot cache otherwise valid partial results', async () => {
+    const h = await harness(() => json({
+        data: { user: { pinnedItems: { nodes: [{ name: 'partial' }] } } },
+        errors: { message: 'Upstream failed' },
+    }));
+    await assert.rejects(h.run((data) => data.getPinnedRepos('octocat')));
+    assert.equal(h.entries.size, 0);
+});
+
+test('GraphQL HTTP-200 errors do not cache empty or partial pinned results', async () => {
+    const h = await harness(() => json({
+        data: { user: { pinnedItems: { nodes: [{ name: 'partial' }] } } },
+        errors: [{ type: 'RATE_LIMITED', message: 'API rate limit exceeded' }],
+    }));
+    await assert.rejects(h.run((data) => data.getPinnedRepos('octocat')));
+    assert.equal(h.entries.size, 0);
+});
+
+test('a failure on a later release-summary page cannot cache a partial total', async () => {
+    const h = await harness((url, options) => {
+        const { variables } = JSON.parse(options.body);
+        if (variables.after) {
+            return json({ errors: [{ message: 'Upstream timeout' }] });
+        }
+        return gql({ user: { repositories: {
+            nodes: [{ releases: { totalCount: 9 } }],
+            pageInfo: { hasNextPage: true, endCursor: 'next-page' },
+        } } });
+    });
+    await assert.rejects(h.run((data) => data.getPublishedReleaseSummary('octocat')));
+    assert.equal(h.entries.size, 0);
+});
+
+test('genuine empty and absent optional data remain cacheable', async () => {
+    const cases = [
+        {
+            read: (data) => data.getPinnedRepos('octocat'),
+            response: () => gql({ user: { pinnedItems: { nodes: [] } } }),
+            expected: [],
+        },
+        {
+            read: (data) => data.getRepositoryPackageJson('octocat', 'demo'),
+            response: () => gql({ repository: { packageJson: null } }),
+            expected: null,
+        },
+        {
+            read: (data) => data.getDependabotAlerts('octocat', 'demo'),
+            response: () => json([]),
+            expected: {},
+        },
+        {
+            read: (data) => data.getCodexCoauthoredCommitsAccountWide('octocat'),
+            response: () => json({ total_count: 0 }),
+            expected: 0,
+        },
+    ];
+    for (const cacheCase of cases) {
+        let calls = 0;
+        const h = await harness(() => {
+            calls++;
+            return cacheCase.response();
+        });
+        assert.deepEqual(toPlain(await h.run(cacheCase.read)), cacheCase.expected);
+        assert.deepEqual(toPlain(await h.run(cacheCase.read)), cacheCase.expected);
+        assert.equal(calls, 1);
+    }
+});
+
+test('a failed later Vercel page does not cache partial projects', async () => {
+    const h = await harness((url) => {
+        if (new URL(url).searchParams.get('until') === 'next-page') return json({}, { status: 503 });
+        return json({ projects: [{ id: 'project-1', name: 'demo' }], pagination: { next: 'next-page' } });
+    }, { VC_TOKEN: 'test-vercel-token' });
+    await assert.rejects(h.run((data) => data.getVercelProjects()));
+    assert.equal(h.entries.size, 0);
+});
+
+test('a Vercel outage preserves previously cached project links', async () => {
+    let fail = false;
+    const h = await harness(() => fail
+        ? json({}, { status: 503 })
+        : json({ projects: [{ id: 'project-1', name: 'demo' }] }), { VC_TOKEN: 'test-vercel-token' });
+    const initial = toPlain(await h.run((data) => data.getVercelProjects()));
+    const entry = [...h.entries.values()][0];
+    entry.isStale = true;
+    fail = true;
+    const previousError = console.error;
+    console.error = () => {};
+    try {
+        assert.deepEqual(toPlain(await h.run((data) => data.getVercelProjects())), initial);
+    } finally {
+        console.error = previousError;
+    }
+    assert.equal([...h.entries.values()][0], entry);
 });

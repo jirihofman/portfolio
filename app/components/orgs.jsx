@@ -1,10 +1,10 @@
 import Link from "next/link";
 import Image from "next/image";
-import { getUserOrganizations } from "../data";
+import { getUserOrganizations, getOptionalValue } from "../data";
 
 export const ProfileOrganizations = async ({ username }) => {
 
-	const organizations = (await getUserOrganizations(username)).data.user?.organizations.nodes;
+	const organizations = (await getOptionalValue(() => getUserOrganizations(username), null, 'organizations'))?.data.user?.organizations.nodes;
 
 	return (
 		<p>I'm building stuff{

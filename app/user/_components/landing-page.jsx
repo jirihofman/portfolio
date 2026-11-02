@@ -10,7 +10,7 @@ import {
 	CopilotActivity,
 	RecentActivity,
 } from "../../components/recent-activity";
-import { getUser } from "../../data";
+import { getUser, getOptionalValue } from "../../data";
 import { createUserPath } from "../_lib/username";
 
 const navigation = [
@@ -19,7 +19,7 @@ const navigation = [
 ];
 
 async function UserIcon({ promise, fallbackName, fallbackAvatar }) {
-	const user = await promise;
+	const user = (await promise) || {};
 
 	return (
 		<Image
@@ -33,7 +33,7 @@ async function UserIcon({ promise, fallbackName, fallbackAvatar }) {
 }
 
 async function UserText({ promise, fallbackName }) {
-	const user = await promise;
+	const user = (await promise) || {};
 
 	return (
 		<p>
@@ -58,7 +58,7 @@ function ProfileSwitcher({ username, isCustomUser }) {
 }
 
 export function LandingPage({ username, isCustomUser = false, user }) {
-	const userPromise = user ? Promise.resolve(user) : getUser(username);
+	const userPromise = user ? Promise.resolve(user) : getOptionalValue(() => getUser(username), {}, 'profile');
 	const userPath = isCustomUser ? createUserPath(username) : null;
 	const fallbackName = isCustomUser ? username : data.displayName;
 	const fallbackAvatar = isCustomUser
