@@ -540,6 +540,22 @@ test('secondary snapshots distinguish transient failures from expected inaccessi
     }
 });
 
+test('Vercel permission failures allow complete snapshots while transient failures do not', async () => {
+    for (const status of [401, 403, 429, 502]) {
+        const h = await harness((url, options) => {
+            if (new URL(url).hostname === 'api.vercel.com') return json({ error: { code: 'unavailable' } }, { status });
+            return projectResponse(url, options, [repo], (body) => json({ data: Object.fromEntries(
+                Object.keys(body.variables).map((key) => [key, { issueCount: 4 }]),
+            ) }));
+        }, { GITHUB_USERNAME: 'octocat', VC_TOKEN: 'test-vercel-token' });
+        await assert.rejects(h.run((data) => data.getVercelProjects()), (error) => error.status === status);
+        const snapshot = await h.run((data) => data.getOwnerProjectSecondaryData());
+        assert.equal(snapshot.complete, status === 401 || status === 403);
+        assert.equal(snapshot.repositories['octocat/demo'].vercel, null);
+        assert.equal(snapshot.repositories['octocat/demo'].ownerMetrics.copilotPRCount, 4);
+    }
+});
+
 test('changing loader implementation invalidates the persistent cache despite single-flight wrappers', async () => {
     const env = { GH_TOKEN: 'same-credential-for-loader-version-test' };
     const first = await harness(() => json({ id: 1 }), env);

@@ -363,7 +363,7 @@ export const getVercelProjects = cacheData(async () => {
         });
 
         if (!res.ok) {
-            throw new Error(`Vercel API returned ${res.status}.`);
+            throw Object.assign(new Error(`Vercel API returned ${res.status}.`), { status: res.status });
         }
 
         const data = await res.json();
